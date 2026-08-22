@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react'
 import {
   ApiError,
   createOrganizerSession,
@@ -49,6 +55,14 @@ interface SessionValidation {
   input: SessionInput | null
   errors: SessionFormErrors
 }
+
+/**
+ * Operação em curso no editor. Salvar, publicar e escolher filme não podem
+ * acontecer ao mesmo tempo — cada uma desabilita os controles das outras —,
+ * então convivem em um único estado em vez de três booleanos independentes.
+ * Duplicar não entra aqui: ela sai do editor em vez de operar sobre ele.
+ */
+type EditorAction = 'idle' | 'saving' | 'publishing' | 'selecting-movie'
 
 const emptyForm: SessionFormState = {
   startsAt: '',
@@ -445,10 +459,14 @@ export function SessionEditor({
   const [selectedMovie, setSelectedMovie] = useState<CatalogMovie | null>(null)
   const [form, setForm] = useState<SessionFormState>(emptyForm)
   const [isLoading, setIsLoading] = useState(Boolean(sessionId))
-  const [isSaving, setIsSaving] = useState(false)
-  const [isPublishing, setIsPublishing] = useState(false)
+  // Salvar, publicar e escolher filme são mutuamente exclusivos por
+  // construção: cada um desabilita os controles dos outros enquanto corre.
+  // Um único estado discriminado torna isso explícito e impede a combinação
+  // impossível de dois deles ativos ao mesmo tempo.
+  const [action, setAction] = useState<EditorAction>('idle')
+  // Duplicar fica de fora de propósito: ela cria outro rascunho e navega para
+  // fora do editor, então nunca entrou no `isBusy` reportado ao pai.
   const [isDuplicating, setIsDuplicating] = useState(false)
-  const [isSelectingMovie, setIsSelectingMovie] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -458,12 +476,35 @@ export function SessionEditor({
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
   const publishDialogRef = useRef<HTMLDialogElement>(null)
 
+  const isSaving = action === 'saving'
+  const isPublishing = action === 'publishing'
+  // Mesmo booleano de antes: `isSaving || isPublishing || isSelectingMovie`.
+  const isBusy = action !== 'idle'
+
+  /**
+   * Encerra uma operação sem derrubar outra que tenha começado no meio.
+   * Equivale ao antigo `setIsSaving(false)`, que zerava apenas a sua própria
+   * flag em vez de limpar o estado inteiro.
+   */
+  const finishAction = useCallback((finished: EditorAction) => {
+    setAction((current) => (current === finished ? 'idle' : current))
+  }, [])
+
+  const setSelectingMovie = useCallback((isSelecting: boolean) => {
+    setAction((current) => {
+      if (isSelecting) {
+        return 'selecting-movie'
+      }
+
+      return current === 'selecting-movie' ? 'idle' : current
+    })
+  }, [])
+
   useEffect(() => {
-    const isBusy = isSaving || isPublishing || isSelectingMovie
     onBusyChange(isBusy)
 
     return () => onBusyChange(false)
-  }, [isPublishing, isSaving, isSelectingMovie, onBusyChange])
+  }, [isBusy, onBusyChange])
 
   function updateDirtyState(nextIsDirty: boolean) {
     setIsDirty(nextIsDirty)
@@ -599,7 +640,7 @@ export function SessionEditor({
 
     const input = validation.input
     setFieldErrors({})
-    setIsSaving(true)
+    setAction('saving')
     const isNewSession = session === null
 
     try {
@@ -644,7 +685,7 @@ export function SessionEditor({
           : 'Não foi possível salvar o rascunho.',
       )
     } finally {
-      setIsSaving(false)
+      finishAction('saving')
     }
   }
 
@@ -682,7 +723,7 @@ export function SessionEditor({
       return
     }
 
-    setIsPublishing(true)
+    setAction('publishing')
     setActionError(null)
     setNotice(null)
 
@@ -704,7 +745,7 @@ export function SessionEditor({
           : 'Não foi possível publicar a sessão.',
       )
     } finally {
-      setIsPublishing(false)
+      finishAction('publishing')
     }
   }
 
@@ -751,7 +792,6 @@ export function SessionEditor({
   // editabilidade derivada pelo backend.
   const isStructurallyLocked = Boolean(session && !session.editability.allowed)
   const isLayoutLocked = Boolean(session && !session.editability.layoutEditable)
-  const isBusy = isSaving || isPublishing || isSelectingMovie
   const rows = Number(form.rows)
   const seatsPerRow = Number(form.seatsPerRow)
   const priceValue = Number(form.price)
@@ -875,7 +915,7 @@ export function SessionEditor({
               setNotice(null)
               setActionError(null)
             }}
-            onSelectionBusyChange={setIsSelectingMovie}
+            onSelectionBusyChange={setSelectingMovie}
           />
 
           {fieldErrors.movie ? (
