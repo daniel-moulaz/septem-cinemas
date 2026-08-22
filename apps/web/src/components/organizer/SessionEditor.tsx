@@ -19,15 +19,11 @@ import {
   type SessionInput,
   type SessionUpdateInput,
 } from '../../api'
-import {
-  formatPrice,
-  formatSessionDate,
-  tmdbPosterUrl,
-  toDateTimeLocalValue,
-} from './formatters'
+import { formatPrice, formatSessionDate, tmdbPosterUrl } from './formatters'
 import { PosterImage } from '../common/PosterImage'
 import { useToast } from '../common/toast'
 import { MoviePicker } from './MoviePicker'
+import { useSessionForm, type SessionFormState } from './useSessionForm'
 
 interface SessionEditorProps {
   accessToken: string
@@ -38,24 +34,6 @@ interface SessionEditorProps {
   onBusyChange: (isBusy: boolean) => void
 }
 
-interface SessionFormState {
-  startsAt: string
-  venueName: string
-  roomName: string
-  address: string
-  price: string
-  rows: string
-  seatsPerRow: string
-}
-
-type SessionFormField = keyof SessionFormState | 'movie'
-type SessionFormErrors = Partial<Record<SessionFormField, string>>
-
-interface SessionValidation {
-  input: SessionInput | null
-  errors: SessionFormErrors
-}
-
 /**
  * Operação em curso no editor. Salvar, publicar e escolher filme não podem
  * acontecer ao mesmo tempo — cada uma desabilita os controles das outras —,
@@ -63,28 +41,6 @@ interface SessionValidation {
  * Duplicar não entra aqui: ela sai do editor em vez de operar sobre ele.
  */
 type EditorAction = 'idle' | 'saving' | 'publishing' | 'selecting-movie'
-
-const emptyForm: SessionFormState = {
-  startsAt: '',
-  venueName: '',
-  roomName: '',
-  address: '',
-  price: '',
-  rows: '6',
-  seatsPerRow: '10',
-}
-
-function formFromSession(session: OrganizerSession): SessionFormState {
-  return {
-    startsAt: toDateTimeLocalValue(session.startsAt),
-    venueName: session.venueName,
-    roomName: session.roomName,
-    address: session.address,
-    price: (session.priceCents / 100).toFixed(2),
-    rows: String(session.rows),
-    seatsPerRow: String(session.seatsPerRow),
-  }
-}
 
 function movieFromSession(session: OrganizerSession): CatalogMovie {
   return {
@@ -137,78 +93,6 @@ function changesFromSession(
   }
 
   return changes
-}
-
-function validateForm(
-  form: SessionFormState,
-  movie: CatalogMovie | null,
-): SessionValidation {
-  const errors: SessionFormErrors = {}
-
-  if (!movie) {
-    errors.movie = 'Selecione um filme antes de salvar.'
-  }
-
-  const startsAt = new Date(form.startsAt)
-  if (!form.startsAt || Number.isNaN(startsAt.getTime())) {
-    errors.startsAt = 'Informe uma data e hora válidas.'
-  } else if (startsAt.getTime() <= Date.now()) {
-    errors.startsAt = 'A sessão precisa começar no futuro.'
-  }
-
-  const price = Number(form.price)
-  const rows = Number(form.rows)
-  const seatsPerRow = Number(form.seatsPerRow)
-
-  if (!form.price.trim() || !Number.isFinite(price) || price < 0) {
-    errors.price = 'Informe um preço válido, igual ou maior que zero.'
-  } else if (price > 100_000) {
-    errors.price = 'O preço máximo é R$ 100.000,00.'
-  } else if (!/^\d+(?:\.\d{1,2})?$/.test(form.price)) {
-    errors.price = 'Use no máximo duas casas decimais.'
-  }
-
-  if (!Number.isInteger(rows) || rows < 1 || rows > 10) {
-    errors.rows = 'Informe entre 1 e 10 fileiras.'
-  }
-
-  if (
-    !Number.isInteger(seatsPerRow) ||
-    seatsPerRow < 1 ||
-    seatsPerRow > 20
-  ) {
-    errors.seatsPerRow = 'Informe entre 1 e 20 assentos por fileira.'
-  }
-
-  if (!form.venueName.trim()) {
-    errors.venueName = 'Informe o cinema ou local.'
-  }
-
-  if (!form.roomName.trim()) {
-    errors.roomName = 'Informe a sala.'
-  }
-
-  if (!form.address.trim()) {
-    errors.address = 'Informe o endereço.'
-  }
-
-  if (!movie || Object.keys(errors).length > 0) {
-    return { input: null, errors }
-  }
-
-  return {
-    input: {
-      tmdbMovieId: movie.id,
-      startsAt: startsAt.toISOString(),
-      venueName: form.venueName.trim(),
-      roomName: form.roomName.trim(),
-      address: form.address.trim(),
-      priceCents: Math.round(price * 100),
-      rows,
-      seatsPerRow,
-    },
-    errors,
-  }
 }
 
 interface RoomLayoutPreviewProps {
@@ -457,7 +341,17 @@ export function SessionEditor({
   const { notify } = useToast()
   const [session, setSession] = useState<OrganizerSession | null>(null)
   const [selectedMovie, setSelectedMovie] = useState<CatalogMovie | null>(null)
-  const [form, setForm] = useState<SessionFormState>(emptyForm)
+  const {
+    form,
+    fieldErrors,
+    isDirty,
+    setFieldValue,
+    clearFieldError,
+    setFieldErrors,
+    markDirty,
+    resetFrom,
+    validate,
+  } = useSessionForm(onDirtyChange)
   const [isLoading, setIsLoading] = useState(Boolean(sessionId))
   // Salvar, publicar e escolher filme são mutuamente exclusivos por
   // construção: cada um desabilita os controles dos outros enquanto corre.
@@ -467,11 +361,9 @@ export function SessionEditor({
   // Duplicar fica de fora de propósito: ela cria outro rascunho e navega para
   // fora do editor, então nunca entrou no `isBusy` reportado ao pai.
   const [isDuplicating, setIsDuplicating] = useState(false)
-  const [isDirty, setIsDirty] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [fieldErrors, setFieldErrors] = useState<SessionFormErrors>({})
   const [loadRevision, setLoadRevision] = useState(0)
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false)
   const publishDialogRef = useRef<HTMLDialogElement>(null)
@@ -506,11 +398,6 @@ export function SessionEditor({
     return () => onBusyChange(false)
   }, [isBusy, onBusyChange])
 
-  function updateDirtyState(nextIsDirty: boolean) {
-    setIsDirty(nextIsDirty)
-    onDirtyChange(nextIsDirty)
-  }
-
   useEffect(() => {
     const dialog = publishDialogRef.current
 
@@ -539,9 +426,7 @@ export function SessionEditor({
       .then((loadedSession) => {
         setSession(loadedSession)
         setSelectedMovie(movieFromSession(loadedSession))
-        setForm(formFromSession(loadedSession))
-        setIsDirty(false)
-        onDirtyChange(false)
+        resetFrom(loadedSession)
       })
       .catch((requestError: unknown) => {
         if (controller.signal.aborted) {
@@ -561,7 +446,10 @@ export function SessionEditor({
       })
 
     return () => controller.abort()
-  }, [accessToken, loadRevision, onDirtyChange, sessionId])
+    // `resetFrom` é estável: deriva de `onDirtyChange`, que o pai passa como
+    // setter de estado. Entra aqui no lugar de `onDirtyChange`, que o efeito
+    // deixou de chamar diretamente.
+  }, [accessToken, loadRevision, resetFrom, sessionId])
 
   const isPublishedSession = session?.status === 'PUBLISHED'
 
@@ -605,13 +493,7 @@ export function SessionEditor({
   }, [accessToken, isPublishedSession, sessionId])
 
   function updateField(field: keyof SessionFormState, value: string) {
-    setForm((current) => ({ ...current, [field]: value }))
-    setFieldErrors((current) => {
-      const next = { ...current }
-      delete next[field]
-      return next
-    })
-    updateDirtyState(true)
+    setFieldValue(field, value)
     setNotice(null)
     setActionError(null)
   }
@@ -621,7 +503,7 @@ export function SessionEditor({
     setActionError(null)
     setNotice(null)
 
-    const validation = validateForm(form, selectedMovie)
+    const validation = validate(selectedMovie)
     if (!validation.input) {
       setFieldErrors(validation.errors)
       setActionError('Revise os campos destacados antes de salvar.')
@@ -650,7 +532,7 @@ export function SessionEditor({
         const changes = changesFromSession(session, input)
 
         if (Object.keys(changes).length === 0) {
-          updateDirtyState(false)
+          markDirty(false)
           setNotice('O rascunho já está atualizado.')
           return
         }
@@ -666,8 +548,7 @@ export function SessionEditor({
 
       setSession(savedSession)
       setSelectedMovie(movieFromSession(savedSession))
-      setForm(formFromSession(savedSession))
-      updateDirtyState(false)
+      resetFrom(savedSession)
 
       const successMessage = isNewSession
         ? 'Rascunho criado com sucesso. Agora você pode publicá-lo.'
@@ -705,7 +586,7 @@ export function SessionEditor({
         'success',
       )
       // Abre o editor do novo rascunho para a revisão imediata.
-      updateDirtyState(false)
+      markDirty(false)
       onCreated?.(copy.id)
     } catch (duplicateError) {
       setActionError(
@@ -906,12 +787,8 @@ export function SessionEditor({
             selectedMovie={selectedMovie}
             onSelect={(movie) => {
               setSelectedMovie(movie)
-              setFieldErrors((current) => {
-                const next = { ...current }
-                delete next.movie
-                return next
-              })
-              updateDirtyState(true)
+              clearFieldError('movie')
+              markDirty(true)
               setNotice(null)
               setActionError(null)
             }}
