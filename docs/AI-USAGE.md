@@ -339,3 +339,55 @@ A correção foi tirar a conta da chave. O limite passou a valer por origem, com
 O smoke local cobriu login correto e incorreto, a rajada até o `429` com `Retry-After` coerente, a recuperação real após esperar o cooldown de sessenta segundos, catálogo, Swagger UI, stream SSE com os cabeçalhos de segurança presentes na resposta sequestrada, ingresso, link compartilhado sem PII e portaria em `WRONG_EVENT` e `INVALID`. O ingresso de demonstração foi preservado em `VALID`: nenhuma etapa do smoke o consumiu ou cancelou. A correção do rodapé foi confirmada como escopada — o modificador aparece apenas na rota que tem barra fixa, e Home e Meus ingressos continuam sem espaço extra.
 
 O total de testes permaneceu em 191, em 18 arquivos: os quatro casos do modelo antigo foram substituídos por quatro do modelo novo, sem inflar a contagem. `prisma validate`, `prisma generate`, lint, typecheck, build, `git diff --check` e `npm ls --depth=0` concluíram limpos, sem dependência nova. O trabalho permaneceu no working tree, sem commit, push ou deploy.
+
+## M16 — Hardening pós-entrega
+
+Em 22 de agosto de 2026, depois de enviar o repositório e ainda dentro do prazo da etapa, executei uma passada de hardening no frontend. Diferente das rodadas anteriores, esta terminou em branch dedicada, pull request com CI verde e merge em `main` — não no working tree.
+
+Usei o Claude Code (Anthropic) como executor e o Claude como interlocutor de revisão do plano, pedindo explicitamente que o plano fosse contestado antes de executado.
+
+### O que motivou a rodada
+
+Duas lacunas que eu já reconhecia na entrega. O workspace `apps/web` não tinha nenhum teste, enquanto o backend tinha 191 de integração. E o `SessionEditor.tsx` acumulava 1213 linhas com 15 `useState`, incluindo três booleanos de operação independentes que representavam oito combinações possíveis para quatro estados reais.
+
+Defini as restrições antes de começar: não tocar em `apps/api`, não adicionar dependência de runtime, trabalhar em branch separada, e abortar a refatoração se ela ficasse vermelha — preservando apenas os testes, que são puramente aditivos.
+
+### O que foi feito
+
+**Infraestrutura de teste.** Vitest e Testing Library em `apps/web`, ambiente jsdom, com stub de `matchMedia` — que o jsdom não implementa e a portaria consome. Os arquivos de teste entraram no `include` do `tsconfig.app.json`, de modo que `tsc -b` também os verifica; isso pagou imediatamente, ao apontar um erro de tipo real em uma fixture minha. O `ci.yml` não precisou de alteração: o `npm run test` da raiz já usa `--workspaces --if-present`.
+
+**Quinze testes de jornada.** Portaria (7), mapa de assentos (3), checkout (2) e editor (3), consultados por papel e texto acessível, apoiados nos `aria-*` que o projeto já usava. Os mocks ficaram na camada `src/api.ts` e no componente `QrScanner`, não em `fetch` global.
+
+**Estado discriminado no editor.** `isSaving`, `isPublishing` e `isSelectingMovie` colapsados em um único `EditorAction`, com `isBusy` derivado como `action !== 'idle'` e produzindo exatamente o mesmo booleano de antes. O encerramento passou por `finishAction`, que só retorna a `idle` se a operação encerrada ainda for a corrente: um `setAction('idle')` direto derrubaria outra operação em voo. Hoje são equivalentes, porque as operações são mutuamente exclusivas; a versão guardada não depende disso continuar verdade.
+
+**Hook `useSessionForm`.** Estado e validação do formulário extraídos, absorvendo três repetições que estavam espalhadas pelo componente. O editor caiu para 1130 linhas e 10 `useState`.
+
+### O que a ferramenta contestou, e o que mudou por causa disso
+
+Três objeções vieram com evidência no código, e duas alteraram a execução:
+
+1. A refatoração atingiria o `SessionEditor`, que os testes planejados não cobriam — o critério "se ficar vermelho, reverta" não valeria para ele, porque `npm run check` verde não provaria nada sobre o arquivo refatorado. Aceitei e acrescentei três testes do editor, escritos contra comportamento observável para que sobrevivessem à refatoração. O do guarda de alterações não salvas usa a prop `onDirtyChange`, que é contrato público, não o estado interno.
+2. `isDuplicating` está deliberadamente fora do `isBusy` que alimenta `onBusyChange`, e o código soma os dois manualmente onde importa. Colapsar os quatro flags mudaria silenciosamente o que o componente pai enxerga como ocupado. Cancelei essa parte do plano: `isDuplicating` permaneceu separado.
+3. `matchMedia` não existe no jsdom e quebraria os testes da portaria na primeira renderização. Resolvido no setup.
+
+### Uma premissa minha que estava errada
+
+Dois testes que especifiquei para a portaria — validação de formato e normalização de hífen e espaço — partiam da suposição de que essa lógica existia no frontend. Não existe: o `GateArea` faz apenas `trim` e `toUpperCase`, e a normalização vive em `normalizeManualCode` (`gate.service.ts`), já coberta pelos testes da API. Escrevê-los como planejado significaria duplicar teste de backend ou afirmar comportamento inexistente. Foram reescritos para o que o componente de fato garante: o guarda de campo vazio e a preservação fiel do que o operador digitou.
+
+### O que ficou deliberadamente de fora
+
+Extrair carregamento e ações de servidor para um segundo hook, e quebrar o editor em componentes menores. São os caminhos de publicar e duplicar, que não têm cobertura automatizada; refatorá-los sem rede, dentro da janela de entrega, não se pagava. O corte foi decidido depois que a própria ferramenta apontou que a rede de testes alcançava salvar, bloqueio e dirty, mas não publicar nem duplicar.
+
+Também considerei e recusei corrigir a janela em que os controles de edição permanecem habilitados durante uma duplicação. É uma lacuna pequena e real: `isDuplicating` fora do `isBusy` está certo quanto ao guarda de navegação, mas deixa passar cliques em "Salvar alterações" enquanto a duplicação está no ar. Na prática é inofensivo — são recursos distintos no servidor e a duplicação navega para fora ao terminar. Fica registrada, não corrigida: mudar comportamento de produto a dois dias do prazo não se justificava.
+
+Publicar, duplicar e rebuild de layout seguem validados apenas manualmente.
+
+### Validações desta etapa
+
+- `npm run check` verde localmente: API 191/191 (intacta) e web 17/17, lint com `--max-warnings=0`, typecheck e builds dos dois workspaces.
+- CI verde no pull request contra PostgreSQL 17 limpo, e novamente após o merge em `main`.
+- Verificação manual no navegador dos seis caminhos do organizador, com atenção deliberada a publicar e duplicar, que não têm cobertura automatizada: sessão bloqueada exibindo o motivo real, edição e salvamento de uma publicada sem histórico, publicação de rascunho, duplicação gerando rascunho sem dados transacionais, troca de filme pelo catálogo e disparo do guarda ao sair com alteração pendente.
+- Nenhum `any`, `@ts-ignore` ou `eslint-disable` foi introduzido, e nenhuma dependência de runtime foi adicionada.
+
+Durante a rodada, o Docker Desktop do ambiente entrou em crash-loop por sockets órfãos, derrubando o PostgreSQL local e deixando 14 arquivos de teste da API vermelhos. O diagnóstico confirmou que a causa era ambiental e não a alteração; após `wsl --shutdown` e reinício, os 191 testes voltaram intactos. O episódio reforçou que o CI, com seu próprio PostgreSQL, é a rede de segurança confiável para a suíte de backend.
+
