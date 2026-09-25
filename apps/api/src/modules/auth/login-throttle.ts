@@ -6,7 +6,7 @@
  * da senha: como a senha correta também era recusada durante o cooldown,
  * qualquer pessoa podia manter uma conta conhecida indisponível enviando uma
  * tentativa errada por minuto. Com as credenciais de demonstração públicas,
- * isso seria uma negação de serviço trivial contra a própria avaliação.
+ * isso seria uma negação de serviço trivial contra a demonstração.
  * Tirando a conta da chave, um cliente abusivo passa a limitar apenas a si
  * mesmo — não existe mais bloqueio direcionado a uma conta.
  *

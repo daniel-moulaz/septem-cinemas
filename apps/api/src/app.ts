@@ -45,6 +45,7 @@ export function buildApp(
     credentials: false,
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Retry-After'],
   })
   registerAuth(app)
   app.register(catalogRoutes, { prefix: '/catalog', catalog: movieCatalog })

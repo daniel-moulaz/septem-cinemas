@@ -1,19 +1,14 @@
 import { buildApp } from './app.js'
 import { env } from './config/env.js'
 import { prisma } from './lib/prisma.js'
+import { loggerOptions } from './http/logger.js'
 
 const app = buildApp({
   // Atrás do proxy da plataforma, sem isto `request.ip` seria o endereço do
   // proxy para todos os clientes e o limite de abuso do login valeria para o
   // conjunto em vez de por cliente.
   trustProxy: env.TRUST_PROXY,
-  logger: {
-    redact: [
-      'req.headers.authorization',
-      'req.body.password',
-      'req.body.credential',
-    ],
-  },
+  logger: loggerOptions,
 })
 
 let isShuttingDown = false

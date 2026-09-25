@@ -70,7 +70,9 @@ export function startSessionEventStream(
       return
     }
 
-    raw.write(chunk)
+    // An invalidation can be recovered by reconnect/polling. A slow client
+    // must not grow the process write buffer without a bound.
+    if (!raw.write(chunk)) close()
   }
 
   function send(event: SessionEventName) {

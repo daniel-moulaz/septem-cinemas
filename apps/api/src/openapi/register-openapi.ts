@@ -73,6 +73,7 @@ export function registerOpenApi(app: FastifyInstance) {
 
   app.register(swaggerUi, {
     routePrefix: '/docs',
+    staticCSP: true,
     uiConfig: {
       deepLinking: true,
       displayOperationId: false,
