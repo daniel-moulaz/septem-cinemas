@@ -1,5 +1,5 @@
 {
-  "name": "elite-dev-verzel",
+  "name": "septem-cinemas",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
@@ -10,21 +10,22 @@
   },
   "scripts": {
     "dev": "concurrently --kill-others-on-fail --names web,api \"npm:dev:web\" \"npm:dev:api\"",
-    "dev:web": "npm run dev --workspace @elite-dev/web",
-    "dev:api": "npm run dev --workspace @elite-dev/api",
-    "lint": "npm run lint --workspaces --if-present",
+    "dev:web": "npm run dev --workspace @septem/web",
+    "dev:api": "npm run dev --workspace @septem/api",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "npm run prisma:generate && npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "build": "npm run prisma:generate && npm run build --workspaces --if-present",
-    "check": "npm run lint && npm run typecheck && npm test && npm run build",
-    "prisma:validate": "npm run prisma:validate --workspace @elite-dev/api",
-    "prisma:generate": "npm run prisma:generate --workspace @elite-dev/api",
+    "check": "npm run prisma:validate && npm run lint && npm run typecheck && npm test && npm run build",
+    "prisma:validate": "npm run prisma:validate --workspace @septem/api",
+    "prisma:generate": "npm run prisma:generate --workspace @septem/api",
     "db:up": "docker compose up -d db",
     "db:stop": "docker compose stop db",
-    "db:check": "npm run db:check --workspace @elite-dev/api",
-    "db:migrate:dev": "npm run db:migrate:dev --workspace @elite-dev/api --",
-    "db:migrate:deploy": "npm run db:migrate:deploy --workspace @elite-dev/api",
-    "db:seed": "npm run db:seed --workspace @elite-dev/api"
+    "db:check": "npm run db:check --workspace @septem/api",
+    "db:migrate:dev": "npm run db:migrate:dev --workspace @septem/api --",
+    "db:migrate:deploy": "npm run db:migrate:deploy --workspace @septem/api",
+    "db:seed": "npm run db:seed --workspace @septem/api",
+    "test:concurrency-proof": "node scripts/concurrency-proof.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -35,5 +36,13 @@
     "globals": "17.11.0",
     "typescript": "5.9.3",
     "typescript-eslint": "8.67.0"
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.0"
+    },
+    "prisma": {
+      "mysql2": "3.24.4"
+    }
   }
 }

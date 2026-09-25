@@ -376,8 +376,8 @@ describe('ticket cryptography', () => {
 
     expect(header).toEqual({ alg: 'HS256', typ: 'JWT' })
     expect(payload).toMatchObject({
-      iss: 'elite-dev-verzel-api',
-      aud: 'elite-dev-verzel-gate',
+      iss: 'septem-cinemas-api',
+      aud: 'septem-cinemas-gate',
       typ: 'ticket',
       ver: 1,
       jti: fixture.ticketId,

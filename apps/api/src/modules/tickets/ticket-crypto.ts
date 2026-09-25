@@ -4,8 +4,8 @@ import {
   timingSafeEqual,
 } from 'node:crypto'
 
-export const TICKET_TOKEN_ISSUER = 'elite-dev-verzel-api'
-export const TICKET_TOKEN_AUDIENCE = 'elite-dev-verzel-gate'
+export const TICKET_TOKEN_ISSUER = 'septem-cinemas-api'
+export const TICKET_TOKEN_AUDIENCE = 'septem-cinemas-gate'
 export const TICKET_TOKEN_TYPE = 'ticket'
 export const TICKET_TOKEN_VERSION = 1
 export const TICKET_TOKEN_ALGORITHM = 'HS256'

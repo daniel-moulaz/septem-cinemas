@@ -357,8 +357,8 @@ describe('POST /auth/login', () => {
     expect(token.payload).toMatchObject({
       sub: login.user.id,
       role: Role.ORGANIZER,
-      iss: 'elite-dev-verzel-api',
-      aud: 'elite-dev-verzel-web',
+      iss: 'septem-cinemas-api',
+      aud: 'septem-cinemas-web',
     })
     expect(Object.keys(token.payload).sort()).toEqual([
       'aud',
