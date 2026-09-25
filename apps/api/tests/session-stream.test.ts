@@ -28,4 +28,3 @@ it('unsubscribes and stops heartbeats when a slow client fills the write buffer'
     expect(vi.getTimerCount()).toBe(0)
   } finally { vi.useRealTimers() }
 })
-

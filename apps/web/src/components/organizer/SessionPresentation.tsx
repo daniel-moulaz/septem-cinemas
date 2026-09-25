@@ -236,4 +236,3 @@ export function PublishedSession({ session }: PublishedSessionProps) {
     </article>
   )
 }
-

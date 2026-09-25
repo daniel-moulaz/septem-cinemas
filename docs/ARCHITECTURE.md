@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-A solução será um monólito modular com frontend e backend separados no mesmo repositório. O navegador nunca acessa a TMDb nem o PostgreSQL diretamente.
+A solução é um monólito modular com frontend e backend separados no mesmo repositório. O navegador nunca acessa a TMDb nem o PostgreSQL diretamente.
 
 ```text
 React/Vite ──HTTP/JSON──> Fastify ──Prisma/SQL──> PostgreSQL
@@ -10,7 +10,7 @@ React/Vite ──HTTP/JSON──> Fastify ──Prisma/SQL──> PostgreSQL
                               └────HTTPS────> TMDb
 ```
 
-Estrutura planejada, sem pacote compartilhado prematuro:
+Estrutura atual, sem pacote compartilhado prematuro:
 
 ```text
 apps/
@@ -41,7 +41,7 @@ A especificação OpenAPI descreve as operações reais da API e fica disponíve
 | Entidade | Dados e relações principais | Garantias e índices |
 |---|---|---|
 | `User` | e-mail, `passwordHash`, papel | e-mail único |
-| `Session` | organizador, snapshot TMDb, horário, local, preço em centavos, status | índices por `status/startsAt` e `organizerId`; estrutura imutável após `PUBLISHED` |
+| `Session` | organizador, snapshot TMDb, horário, local, preço em centavos, status | índices por `status/startsAt` e `organizerId`; edição condicionada à ausência de consequência comercial |
 | `Seat` | sessão, fileira, número e label | `UNIQUE(sessionId, label)` |
 | `Reservation` | cliente, sessão, status, `expiresAt`, total | índices por cliente, sessão, status e expiração |
 | `ReservationSeat` | reserva, assento, preço unitário e `releasedAt` | índice único parcial em `seatId WHERE releasedAt IS NULL`; vínculos liberados permanecem como histórico |
@@ -116,7 +116,7 @@ As FKs de `Payment` e `Ticket` usam `RESTRICT` sobre a reserva paga e sua aloca�
 
 Existem dois cancelamentos, ambos exigindo `CUSTOMER` autenticado e ownership sem revelar recursos de terceiros, e ambos limitados a ingressos ainda `VALID` de sessões ainda não iniciadas: `POST /me/tickets/:id/cancel` cancela um único ingresso; `POST /reservations/:id/cancel` cancela de uma vez todos os ingressos ainda `VALID` da compra. Nenhum dos dois afeta ingressos já `USED` ou já `CANCELLED`, nem o `Payment` aprovado, que permanece inalterado como histórico — não existe integração de estorno.
 
-A `Reservation` não ganhou um estado "parcialmente cancelada": ela permanece `PAID` enquanto restar ao menos um ingresso `VALID` e só transiciona para `CANCELLED` quando o último ingresso `VALID` da compra é cancelado, seja pela rota individual, seja pela rota integral. Esse estado é sempre derivado dos `Ticket` da compra, nunca armazenado separadamente. Uma segunda chamada sobre um ingresso ou reserva já cancelados é conflito explícito (`TICKET_NOT_CANCELLABLE`, `RESERVATION_ALREADY_CANCELLED`), assim como sessão iniciada (`TICKET_SESSION_STARTED`, `RESERVATION_SESSION_STARTED`) e ingresso `USED` (`TICKET_NOT_CANCELLABLE` na rota individual, `RESERVATION_HAS_USED_TICKET` na rota integral, que rejeita a compra inteira mesmo que só um ingresso esteja `USED`). Reserva ou ingresso inexistente ou alheio retornam `RESERVATION_NOT_FOUND`/`TICKET_NOT_FOUND`; `RESERVATION_NOT_CANCELLABLE` cobre uma reserva que nunca chegou a `PAID`.
+A `Reservation` não ganhou um estado "parcialmente cancelada": ela permanece `PAID` enquanto restar ingresso `VALID` ou `USED` e só transiciona para `CANCELLED` quando todos forem cancelados, seja pela rota individual, seja pela rota integral. Esse estado é sempre derivado dos `Ticket` da compra, nunca armazenado separadamente. Uma segunda chamada sobre um ingresso ou reserva já cancelados é conflito explícito (`TICKET_NOT_CANCELLABLE`, `RESERVATION_ALREADY_CANCELLED`), assim como sessão iniciada (`TICKET_SESSION_STARTED`, `RESERVATION_SESSION_STARTED`) e ingresso `USED` (`TICKET_NOT_CANCELLABLE` na rota individual, `RESERVATION_HAS_USED_TICKET` na rota integral, que rejeita a compra inteira mesmo que só um ingresso esteja `USED`). Reserva ou ingresso inexistente ou alheio retornam `RESERVATION_NOT_FOUND`/`TICKET_NOT_FOUND`; `RESERVATION_NOT_CANCELLABLE` cobre uma reserva que nunca chegou a `PAID`.
 
 Dentro de uma única transação, cada rota bloqueia `Seat -> Reservation -> ReservationSeat -> Ticket` — a individual restrita ao único assento/ingresso do alvo, a integral às coleções ativas da reserva inteira, sempre ordenando por ID — usa o relógio do PostgreSQL e revalida todas as precondições. Em seguida, move o(s) ingresso(s) para `CANCELLED`, preenche `releasedAt` na(s) alocação(ões) correspondente(s) e, se for o caso, move a reserva para `CANCELLED`. As contagens de linhas alteradas também são conferidas antes do commit. A rota integral tolera uma compra parcialmente cancelada: ela ignora os ingressos já `CANCELLED` e transiciona apenas os que ainda estão `VALID`.
 
@@ -206,4 +206,12 @@ Em desenvolvimento, o Compose contém apenas PostgreSQL; web e API rodam localme
 
 A aplicação está publicada com o frontend na Vercel e a API com PostgreSQL no Railway; as URLs estão no README. A API usa Railpack a partir da raiz do monorepo, respeita a `PORT` da plataforma, aplica `prisma migrate deploy` antes de iniciar e expõe `/health` para o rollout. O seed permanece uma operação única e manual depois do primeiro deploy; executá-lo em todo restart restauraria datas, senhas e o estado do ingresso demonstrativo.
 
-Na Vercel, `apps/web` é a raiz do projeto e um rewrite mínimo entrega `index.html` para as rotas da SPA. `VITE_API_URL` aponta para a API pública; no backend, `WEB_ORIGIN` mantém CORS e links compartilhados restritos ao domínio canônico do frontend. O smoke test em produção percorre os três papéis, Swagger, compartilhamento e câmera via HTTPS. Se o teto de 20 horas apertar, os primeiros cortes são polling, filtros extras, containers de web/API e polimento adicional, não as garantias transacionais nem o deploy.
+Na Vercel, `apps/web` é a raiz do projeto e um rewrite entrega `index.html` para as rotas da SPA. `VITE_API_URL` aponta para a API pública; no backend, `WEB_ORIGIN` configura CORS e a origem dos links compartilhados. Após um rollout, o smoke em produção deve percorrer os três papéis, Swagger, compartilhamento e câmera via HTTPS. OPERATIONS.md descreve diagnóstico, rollout e rollback; HARDENING-REPORT.md registra o que foi efetivamente validado nesta rodada.
+
+## Recuperação e manutenção do frontend
+
+Leituras públicas passam por public-read.ts, com retries transitórios limitados, timeout e cancelamento. Escritas e autenticação não são repetidas automaticamente. ServerStartingNotice complementa os skeletons após 1,5 segundo.
+
+SessionEditor apresenta o editor; useSessionEditor coordena carregamento e operações; useSessionForm mantém validação e dirty state; SessionPresentation concentra prévia e leitura operacional. Eventos são agregados durante um fetch e complementados por polling de oito segundos. Atualizações operacionais não substituem os campos em edição. Durante uma mutação, o refresh anterior é abortado para não sobrescrever seu resultado.
+
+Ver CONCURRENCY-PROOF.md, KNOWN-LIMITATIONS.md e DECISIONS.md para as provas, limites e decisão sobre idempotência.
