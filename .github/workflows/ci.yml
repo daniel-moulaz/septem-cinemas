@@ -18,20 +18,20 @@ jobs:
     name: Quality gates
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: postgresql://elite_dev:ci_only_password@127.0.0.1:5432/elite_dev_verzel?schema=public
+      DATABASE_URL: postgresql://septem:ci_only_password@127.0.0.1:5432/septem_cinemas?schema=public
       JWT_SECRET: ci_only_jwt_secret_never_use_in_production_2026
       TICKET_SIGNING_SECRET: ci_only_ticket_secret_never_use_in_production_2026
     services:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: elite_dev
+          POSTGRES_USER: septem
           POSTGRES_PASSWORD: ci_only_password
-          POSTGRES_DB: elite_dev_verzel
+          POSTGRES_DB: septem_cinemas
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U elite_dev -d elite_dev_verzel"
+          --health-cmd "pg_isready -U septem -d septem_cinemas"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -58,14 +58,8 @@ jobs:
       - name: Seed test fixtures
         run: npm run db:seed
 
-      - name: Lint
-        run: npm run lint
+      - name: Validate, lint, typecheck, test and build
+        run: npm run check
 
-      - name: Typecheck
-        run: npm run typecheck --workspaces --if-present
-
-      - name: Test
-        run: npm run test
-
-      - name: Build
-        run: npm run build --workspaces --if-present
+      - name: Prove concurrency protections with isolated mutations
+        run: npm run test:concurrency-proof

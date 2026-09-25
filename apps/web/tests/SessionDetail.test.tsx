@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PublicSessionDetail, SessionSeat } from '../src/api'
+import axe from 'axe-core'
 
 vi.mock('../src/api', () => ({
   ApiError: class ApiError extends Error {},
@@ -64,6 +65,15 @@ beforeEach(() => {
 })
 
 describe('mapa de assentos', () => {
+  it('permite seleção por teclado e não tem violações automáticas de acessibilidade', async () => {
+    const user = userEvent.setup()
+    const { container } = renderSessionDetail()
+    const seat = await screen.findByRole('button', { name: 'Assento A1, disponível' })
+    seat.focus()
+    await user.keyboard(' ')
+    expect(screen.getByRole('button', { name: 'Assento A1, selecionado' })).toHaveFocus()
+    expect((await axe.run(container, { rules: { 'color-contrast': { enabled: false } } })).violations).toEqual([])
+  })
   it('descreve cada estado no nome acessível, e não apenas na cor', async () => {
     renderSessionDetail()
 

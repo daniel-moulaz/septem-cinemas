@@ -72,6 +72,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
       {children}
       <div
         className="toast-viewport"
+        role="region"
         aria-live="polite"
         aria-atomic="false"
         aria-label="Notificações"

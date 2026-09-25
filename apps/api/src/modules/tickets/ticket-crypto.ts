@@ -4,8 +4,8 @@ import {
   timingSafeEqual,
 } from 'node:crypto'
 
-export const TICKET_TOKEN_ISSUER = 'elite-dev-verzel-api'
-export const TICKET_TOKEN_AUDIENCE = 'elite-dev-verzel-gate'
+export const TICKET_TOKEN_ISSUER = 'septem-cinemas-api'
+export const TICKET_TOKEN_AUDIENCE = 'septem-cinemas-gate'
 export const TICKET_TOKEN_TYPE = 'ticket'
 export const TICKET_TOKEN_VERSION = 1
 export const TICKET_TOKEN_ALGORITHM = 'HS256'
@@ -14,12 +14,18 @@ export const TICKET_EXPIRATION_MARGIN_MINUTES = 120
 
 const MANUAL_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'
 const MANUAL_CODE_LENGTH = 16
+// Read-only compatibility: neither legacy value is used by signTicketToken.
+const legacyTicketContract = {
+  iss: 'elite-dev-verzel-api',
+  aud: 'elite-dev-verzel-gate',
+} as const
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 
-export interface TicketTokenClaims {
-  iss: typeof TICKET_TOKEN_ISSUER
-  aud: typeof TICKET_TOKEN_AUDIENCE
+export type TicketTokenClaims = (
+  | { iss: typeof TICKET_TOKEN_ISSUER; aud: typeof TICKET_TOKEN_AUDIENCE }
+  | typeof legacyTicketContract
+) & {
   typ: typeof TICKET_TOKEN_TYPE
   ver: typeof TICKET_TOKEN_VERSION
   jti: string
@@ -72,8 +78,8 @@ function isValidClaims(value: unknown): value is TicketTokenClaims {
   }
 
   return (
-    value.iss === TICKET_TOKEN_ISSUER &&
-    value.aud === TICKET_TOKEN_AUDIENCE &&
+    ((value.iss === TICKET_TOKEN_ISSUER && value.aud === TICKET_TOKEN_AUDIENCE) ||
+      (value.iss === legacyTicketContract.iss && value.aud === legacyTicketContract.aud)) &&
     value.typ === TICKET_TOKEN_TYPE &&
     value.ver === TICKET_TOKEN_VERSION &&
     typeof value.jti === 'string' &&

@@ -296,15 +296,15 @@ beforeAll(async () => {
   gateId = gate.id
   accessTokens.set(
     Role.ORGANIZER,
-    app.jwt.sign({ role: Role.ORGANIZER }, { sub: organizer.id }),
+    app.jwt.sign({ role: Role.ORGANIZER, sub: organizer.id }),
   )
   accessTokens.set(
     Role.CUSTOMER,
-    app.jwt.sign({ role: Role.CUSTOMER }, { sub: customer.id }),
+    app.jwt.sign({ role: Role.CUSTOMER, sub: customer.id }),
   )
   accessTokens.set(
     Role.GATE,
-    app.jwt.sign({ role: Role.GATE }, { sub: gate.id }),
+    app.jwt.sign({ role: Role.GATE, sub: gate.id }),
   )
 
   const oldSessions = await prisma.session.findMany({

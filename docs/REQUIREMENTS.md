@@ -2,7 +2,7 @@
 
 ## Escopo e fontes
 
-O desafio técnico oficial é a fonte de verdade. O produto será uma plataforma focada exclusivamente em cinema, utilizando a TMDb como catálogo externo e priorizando um fluxo simples, completo e reproduzível.
+O SEPTEM Cinemas é uma plataforma focada exclusivamente em cinema, utilizando a TMDb como catálogo externo e priorizando um fluxo simples, completo e reproduzível.
 
 Fluxo principal: o organizador escolhe um filme e publica uma sessão; o cliente encontra a sessão, reserva um assento, realiza um pagamento simulado e recebe um ingresso; antes da sessão, pode cancelar a compra elegível inteira e devolver os lugares; a portaria valida e consome ingressos ativos por QR Code ou código manual.
 
@@ -38,7 +38,7 @@ Fluxo principal: o organizador escolhe um filme e publica uma sessão; o cliente
 - Listar “Meus ingressos” e exibir ingresso digital com QR Code e código manual.
 - Permitir ao cliente cancelar a reserva `PAID` própria inteira antes do início da sessão, desde que ainda não esteja cancelada e nenhum ingresso da compra esteja `USED`.
 - Permitir ao cliente cancelar um ingresso `VALID` individual da própria compra, sem afetar os demais ingressos ainda válidos da mesma reserva.
-- No cancelamento — individual ou da compra inteira —, mover o(s) ingresso(s) ainda `VALID` para `CANCELLED`, liberar imediatamente o(s) assento(s) correspondente(s) e preservar `Payment`, `Ticket` e `ReservationSeat` como histórico. A reserva só passa a `CANCELLED` quando nenhum ingresso `VALID` resta. Não simular refund financeiro.
+- No cancelamento — individual ou da compra inteira —, mover o(s) ingresso(s) ainda `VALID` para `CANCELLED`, liberar imediatamente o(s) assento(s) correspondente(s) e preservar `Payment`, `Ticket` e `ReservationSeat` como histórico. A reserva só passa a `CANCELLED` quando todos os ingressos foram cancelados; `USED` mantém a compra paga. Não simular refund financeiro.
 
 ### Compartilhamento e portaria
 
@@ -53,7 +53,7 @@ Fluxo principal: o organizador escolhe um filme e publica uma sessão; o cliente
 ### Entrega
 
 - Disponibilizar dados de demonstração para os três papéis e ao menos uma sessão publicada.
-- Publicar frontend, API e PostgreSQL. Embora opcional no enunciado, o deploy é P0 estratégico desta entrega.
+- Publicar frontend, API e PostgreSQL. O deploy permite experimentar as três jornadas.
 - Documentar instalação, credenciais fictícias, cenários de pagamento, arquitetura, limitações e uso de IA no README final.
 
 ## Requisitos não funcionais
@@ -63,23 +63,7 @@ Fluxo principal: o organizador escolhe um filme e publica uma sessão; o cliente
 - Implementar loading, empty state, feedback de sucesso e erros compreensíveis nas jornadas principais.
 - Oferecer interface responsiva, acessibilidade básica e identidade visual ligada a cinema e ingresso digital.
 - Cobrir por integração autenticação, RBAC/ownership, concorrência de assentos, pagamentos, emissão, cancelamento, adulteração e consumo do ingresso.
-- Manter o escopo executável em até aproximadamente 20 horas.
-
-## Prioridades posteriores
-
-### P1 — forte diferencial
-
-- Swagger/OpenAPI, GitHub Actions e Docker Compose mínimo para PostgreSQL.
-- Testes e acabamento responsivo das jornadas críticas além do mínimo de aceitação.
-
-### P2 — somente com folga
-
-- Filtros adicionais, containers de web/API no Compose e polimento visual extra.
-- Cancelamento de sessão, métricas e automações operacionais.
-
-A atualização do mapa em tempo real deixou de ser P2: ela está implementada por SSE de invalidação, com o polling preservado como rede de segurança.
-
-Os itens de P2 e, depois, os refinamentos de P1 são cortes antes de qualquer redução do fluxo P0 ou de suas garantias de segurança.
+- Manter verificações reproduzíveis, contratos seguros e complexidade proporcional ao produto.
 
 ## Fora de escopo
 

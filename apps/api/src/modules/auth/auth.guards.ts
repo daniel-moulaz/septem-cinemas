@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { Role } from '../../generated/prisma/enums.js'
 import { sendError } from '../../http/error-response.js'
 import { findPublicUserById } from './auth.service.js'
+import { isAuthTokenContract } from './auth.constants.js'
 
 const userIdSchema = z.uuid()
 
@@ -14,6 +15,10 @@ export async function authenticateRequest(
 
   try {
     await request.jwtVerify()
+    if (!isAuthTokenContract(request.user.iss, request.user.aud)) {
+      sendError(reply, 401, 'UNAUTHORIZED', 'Autenticação necessária.')
+      return
+    }
     const parsedUserId = userIdSchema.safeParse(request.user.sub)
 
     if (!parsedUserId.success) {

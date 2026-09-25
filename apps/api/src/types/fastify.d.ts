@@ -9,8 +9,8 @@ type AuthPreHandler = (
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: { role: Role }
-    user: { role: Role; sub?: string }
+    payload: { role: Role; sub?: string }
+    user: { role: Role; sub?: string; iss?: unknown; aud?: unknown }
   }
 }
 

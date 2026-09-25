@@ -57,7 +57,31 @@ const TicketList = lazy(() =>
   })),
 )
 
-const accessTokenKey = 'elite-dev-access-token'
+const accessTokenKey = 'septem-access-token'
+const legacyAccessTokenKey = 'elite-dev-access-token'
+
+function readAccessToken() {
+  try {
+    return sessionStorage.getItem(accessTokenKey) ?? sessionStorage.getItem(legacyAccessTokenKey)
+  } catch { return null }
+}
+
+function storeAccessToken(token: string | null) {
+  if (token === null) {
+    for (const key of [accessTokenKey, legacyAccessTokenKey]) {
+      try { sessionStorage.removeItem(key) } catch { /* Storage may be disabled. */ }
+    }
+    return
+  }
+  try {
+    sessionStorage.setItem(accessTokenKey, token)
+    // Only discard the fallback after the current token was stored, or on
+    // explicit logout/invalidation. A failed write preserves recovery.
+    sessionStorage.removeItem(legacyAccessTokenKey)
+  } catch {
+    // Login can still live in memory when browser storage is unavailable.
+  }
+}
 
 type AuthState =
   | { status: 'restoring' }
@@ -78,7 +102,7 @@ type PublicRoute =
   | { name: 'shared'; token: string }
 
 function initialAuthState(): AuthState {
-  return sessionStorage.getItem(accessTokenKey)
+  return readAccessToken()
     ? { status: 'restoring' }
     : { status: 'anonymous' }
 }
@@ -391,7 +415,7 @@ export function App() {
   }, [navigate, route.name])
 
   const clearAuthentication = useCallback(() => {
-    sessionStorage.removeItem(accessTokenKey)
+    storeAccessToken(null)
     setLoginError(null)
     setLoginErrorKind(null)
     setAuthState({ status: 'anonymous' })
@@ -399,7 +423,7 @@ export function App() {
 
   const expireAuthentication = useCallback(() => {
     const returnPath = `${window.location.pathname}${window.location.search}`
-    sessionStorage.removeItem(accessTokenKey)
+    storeAccessToken(null)
     setLoginError(null)
     setLoginErrorKind(null)
     setLoginReturnPath(returnPath === '/login' ? '/' : returnPath)
@@ -442,7 +466,7 @@ export function App() {
   }, [authState, route])
 
   useEffect(() => {
-    const accessToken = sessionStorage.getItem(accessTokenKey)
+    const accessToken = readAccessToken()
 
     if (!accessToken) {
       return
@@ -452,6 +476,8 @@ export function App() {
 
     getCurrentUser(accessToken, controller.signal)
       .then((user) => {
+        if (controller.signal.aborted) return
+        storeAccessToken(accessToken)
         setAuthState({ status: 'authenticated', user, accessToken })
       })
       .catch((error: unknown) => {
@@ -460,7 +486,7 @@ export function App() {
         }
 
         if (error instanceof ApiError && error.status === 401) {
-          sessionStorage.removeItem(accessTokenKey)
+          storeAccessToken(null)
         }
 
         setAuthState({
@@ -495,7 +521,7 @@ export function App() {
 
     try {
       const result = await login(email, password)
-      sessionStorage.setItem(accessTokenKey, result.accessToken)
+      storeAccessToken(result.accessToken)
       form.reset()
       setAuthState({
         status: 'authenticated',

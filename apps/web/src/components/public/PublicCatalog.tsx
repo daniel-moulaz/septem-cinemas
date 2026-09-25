@@ -12,6 +12,7 @@ import {
   type PublicSessionSummary,
 } from '../../api'
 import { PosterImage } from '../common/PosterImage'
+import { ServerStartingNotice } from '../common/ServerStartingNotice'
 import {
   formatCompactSessionDay,
   formatPrice,
@@ -285,6 +286,7 @@ export function PublicCatalog({ onOpenSession }: PublicCatalogProps) {
 
     getPublicSessions('', controller.signal)
       .then((result) => {
+        if (controller.signal.aborted) return
         const sortedSessions = [...result].sort(
           (first, second) =>
             new Date(first.startsAt).getTime() -
@@ -727,6 +729,7 @@ export function PublicCatalog({ onOpenSession }: PublicCatalogProps) {
   return (
     <div className="public-content catalog-page">
       <h1 className="visually-hidden">Programação SEPTEM Cinemas</h1>
+      {status === 'loading' ? <ServerStartingNotice /> : null}
 
       {catalogStatus === 'loading' && !featuredSession ? (
         <section
@@ -919,7 +922,7 @@ export function PublicCatalog({ onOpenSession }: PublicCatalogProps) {
                     />
                   </span>
                   <span className="poster-rail-caption">
-                    <strong>{program.movie.title}</strong>
+                    <strong>{program.movie.title}</strong>{' '}
                     <small>
                       {isActive
                         ? 'Em destaque'

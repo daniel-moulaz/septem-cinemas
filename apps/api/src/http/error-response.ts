@@ -57,6 +57,9 @@ export function sendError(
 }
 
 export function registerErrorHandler(app: FastifyInstance) {
+  app.setNotFoundHandler((_request, reply) =>
+    sendError(reply, 404, 'NOT_FOUND', 'Recurso não encontrado.'),
+  )
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof HttpError) {
       if (error.statusCode >= 500) {
@@ -78,6 +81,14 @@ export function registerErrorHandler(app: FastifyInstance) {
       error.statusCode < 500
     ) {
       const { statusCode } = error
+
+      const publicErrors: Partial<Record<number, [ErrorCode, string]>> = {
+        401: ['UNAUTHORIZED', 'Autenticação necessária.'],
+        403: ['FORBIDDEN', 'Você não possui permissão para acessar este recurso.'],
+        409: ['CONFLICT', 'A solicitação conflita com o estado atual do recurso.'],
+      }
+      const publicError = publicErrors[statusCode]
+      if (publicError) return sendError(reply, statusCode, ...publicError)
 
       if (statusCode === 404) {
         return sendError(

@@ -1,12 +1,12 @@
 # Decisões Técnicas
 
-As decisões abaixo foram aprovadas para o MVP. Mudanças relevantes devem atualizar este registro antes da implementação.
+As decisões abaixo registram a evolução técnica do projeto. Adendos indicam políticas substituídas; mudanças relevantes devem manter este registro coerente com a implementação.
 
 ## ADR-001 — Cinema e TMDb
 
 ### Contexto
 
-O desafio admite domínios de eventos e integração com catálogo externo. O prazo favorece uma única jornada completa e coerente.
+O domínio de cinema integra catálogo, programação, reserva e operação em uma jornada completa e coerente.
 
 ### Decisão
 
@@ -36,7 +36,7 @@ Repositórios separados, microsserviços, Next.js, NestJS, FastAPI e um pacote c
 
 ### Trade-offs
 
-Scripts, CI e revisão ficam centralizados, com baixo custo operacional. Pode haver pequena duplicação de tipos entre cliente e API, preferível a uma abstração prematura neste prazo.
+Scripts, CI e revisão ficam centralizados, com baixo custo operacional. Pode haver pequena duplicação de tipos entre cliente e API, preferível a uma abstração sem reutilização concreta.
 
 ## ADR-003 — Snapshot e imutabilidade após publicação
 
@@ -82,7 +82,7 @@ Há correção com múltiplas instâncias da API e sem infraestrutura adicional.
 
 ### Contexto
 
-O avaliador precisa reproduzir aprovação e recusa, sem integração financeira real.
+Quem utiliza o projeto precisa reproduzir aprovação e recusa, sem integração financeira real.
 
 ### Decisão
 
@@ -156,7 +156,7 @@ JWT simplifica cliente e deploy, mas revogação imediata fica fora do MVP. A du
 
 ### Contexto
 
-O deploy é opcional no enunciado, mas reduz a fricção de avaliação e demonstra integração real entre navegador, API e banco.
+O deploy oferece acesso direto ao produto e exercita a integração entre navegador, API e banco.
 
 ### Decisão
 
@@ -170,31 +170,17 @@ Somente ambiente local, Render ou concentrar todos os serviços em uma plataform
 
 ### Trade-offs
 
-Há valor alto para o avaliador, ao custo de tempo com CORS, HTTPS, migrations, seed e variáveis de ambiente. Um bloqueio externo deve ser documentado, não escondido.
+Há valor na demonstração pública, ao custo de tempo com CORS, HTTPS, migrations, seed e variáveis de ambiente. Um bloqueio externo deve ser documentado, não escondido.
 
-## ADR-010 — Teto de 20 horas e ordem de cortes
+## ADR-010 — Escopo orientado às jornadas críticas
 
-### Contexto
-
-Funcionalidades opcionais podem comprometer o fluxo principal e suas regras críticas.
-
-### Decisão
-
-Trabalhar com teto aproximado de 20 horas. Os primeiros cortes serão polling, filtros adicionais, containers de web/API no Compose e polimento extra. Shows, pagamento real, Redis, filas, microsserviços e demais itens fora de escopo não serão iniciados.
-
-### Alternativas consideradas
-
-Maximizar opcionais, suportar mais domínios ou adiar testes e deploy para o fim.
-
-### Trade-offs
-
-O produto terá menos amplitude, mas preserva robustez, documentação e uma demonstração ponta a ponta. Recursos P1 só começam após P0 funcional e verificável.
+Priorizar reserva, pagamento simulado, emissão e portaria com testes e documentação. Integração financeira real, múltiplos domínios e infraestrutura distribuída dependem de necessidades concretas. Menor amplitude permite desenvolver as garantias transacionais; limitações estão em KNOWN-LIMITATIONS.md.
 
 ## ADR-011 — Identidade SEPTEM e linguagem por jornada
 
 ### Contexto
 
-A primeira direção visual era funcional, porém excessivamente editorial e genérica. O teste manual conduzido pelo candidato mostrou baixa densidade de produto: slogans, espaço vazio e títulos de exibição recebiam mais atenção que filmes, horários, salas e preços. A interface ficou visualmente desalinhada da profundidade já existente no backend.
+A primeira direção visual era funcional, porém excessivamente editorial e genérica. O teste manual conduzido pelo autor mostrou baixa densidade de produto: slogans, espaço vazio e títulos de exibição recebiam mais atenção que filmes, horários, salas e preços. A interface ficou visualmente desalinhada da profundidade já existente no backend.
 
 ### Decisão
 
@@ -248,7 +234,7 @@ Naquela iteração, o resumo público ainda não oferecia backdrop; por isso a a
 
 ### Contexto
 
-O avaliador precisa inspecionar e experimentar a API sem depender primeiro do frontend ou de conhecimento prévio das rotas. Ao mesmo tempo, os contratos já são validados com Zod e não devem ser reestruturados apenas para produzir documentação.
+Quem utiliza o projeto precisa inspecionar e experimentar a API sem depender primeiro do frontend ou de conhecimento prévio das rotas. Ao mesmo tempo, os contratos já são validados com Zod e não devem ser reestruturados apenas para produzir documentação.
 
 ### Decisão
 
@@ -278,7 +264,7 @@ SQLite, banco mockado, `prisma db push`, banco compartilhado já preparado, cham
 
 ### Trade-offs
 
-O banco real aumenta a confiança nas migrations e nas regras concorrentes, ao custo de uma execução mais lenta que testes isolados. Um job sequencial reduz duplicação e facilita a avaliação, mas não valida deploy nem disponibilidade da TMDb, que permanecem fora deste bloco.
+O banco real aumenta a confiança nas migrations e nas regras concorrentes, ao custo de uma execução mais lenta que testes isolados. Um job sequencial reduz duplicação e facilita o diagnóstico, mas não valida deploy nem disponibilidade da TMDb, que permanecem fora deste bloco.
 
 ## ADR-016 — Polimento final como evolução da V3, sem nova stack
 
@@ -308,7 +294,7 @@ HTML, CSS e estado local mantêm bundle, stack e explicabilidade sob controle, m
 
 A revisão visual humana da V3.5 aprovou marca, login, mapa, Organizer e Gate, mas identificou três problemas ainda perceptíveis: pôsteres pequenos eram esticados pela altura variável dos cards, o topo da Home não aproveitava o backdrop já persistido e a programação semeada tinha pouca densidade para demonstrar o agrupamento por filme e horário. O ingresso também precisava ocupar menos altura e oferecer utilidades coerentes com um artefato real.
 
-A [Ingresso.com](https://atendimento.ingresso.com/portal/pt-br/kb/articles/como-fa%C3%A7o-para-comprar-meu-ingresso-pelo-site) foi consultada como referência de hierarquia — horário inicia a compra e assentos vêm em seguida — e a [Sympla](https://produtores.sympla.com.br/funcionalidades/check-in-para-eventos/) como referência operacional de leitura móvel. Projetos públicos antigos de candidatos foram observados somente como benchmark de apresentação. Nenhuma dessas fontes substitui o desafio atual ou autoriza copiar interface, código ou escopo.
+A [Ingresso.com](https://atendimento.ingresso.com/portal/pt-br/kb/articles/como-fa%C3%A7o-para-comprar-meu-ingresso-pelo-site) foi consultada como referência de hierarquia — horário inicia a compra e assentos vêm em seguida — e a [Sympla](https://produtores.sympla.com.br/funcionalidades/check-in-para-eventos/) como referência operacional de leitura móvel. Referências orientaram a hierarquia da informação; não autorizam copiar interface, código ou escopo.
 
 ### Decisão
 
@@ -384,7 +370,7 @@ O P0.1 (ADR-018) só cancela a compra inteira. Uma compra com mais de um assento
 
 ### Decisão
 
-Adicionar `POST /me/tickets/:id/cancel`, que cancela exatamente um `Ticket` ainda `VALID` de uma sessão futura e libera somente a `ReservationSeat` daquele ingresso, sem tocar nos demais ingressos da compra. Não foi criado nenhum estado novo: a `Reservation` continua representável só por `PENDING | PAID | EXPIRED | CANCELLED`, e "parcialmente cancelada" é um fato derivado a cada leitura, nunca persistido — ela permanece `PAID` enquanto restar ao menos um `Ticket` `VALID` e passa a `CANCELLED` somente quando o cancelamento (individual ou integral) elimina o último. `POST /reservations/:id/cancel` (ADR-018) permanece disponível e foi ajustado para tolerar tickets já cancelados individualmente: ele cancela apenas os que ainda estão `VALID` e ignora os que não estão, preservando o comportamento anterior quando nenhuma compra parcial ocorreu.
+Adicionar `POST /me/tickets/:id/cancel`, que cancela exatamente um `Ticket` ainda `VALID` de uma sessão futura e libera somente a `ReservationSeat` daquele ingresso, sem tocar nos demais ingressos da compra. Não foi criado nenhum estado novo: a `Reservation` continua representável só por `PENDING | PAID | EXPIRED | CANCELLED`, e "parcialmente cancelada" é um fato derivado a cada leitura, nunca persistido — ela permanece `PAID` enquanto restar ingresso `VALID` ou `USED` e passa a `CANCELLED` somente quando todos forem cancelados. `POST /reservations/:id/cancel` (ADR-018) permanece disponível e foi ajustado para tolerar tickets já cancelados individualmente: ele cancela apenas os que ainda estão `VALID` e ignora os que não estão, preservando o comportamento anterior quando nenhuma compra parcial ocorreu.
 
 A rota individual reaproveita a ordem de locks `Seat -> Reservation -> ReservationSeat -> Ticket` do cancelamento integral, restrita ao único assento/ingresso do alvo. Bloquear a `Reservation` inteira, mesmo para cancelar um único ingresso, é o que permite decidir com segurança se aquele era o último `Ticket` `VALID` e fechar a compra, serializando corretamente contra outro cancelamento (individual ou integral) da mesma reserva e contra o consumo pelo Gate.
 
@@ -400,7 +386,7 @@ Derivar o estado "parcial" a partir dos `Ticket` evita duplicar informação e m
 
 ### Contexto
 
-O mapa dependia de polling a cada oito segundos. O desafio cita mapa de assentos em tempo real como opcional valorizado, e a demonstração desejada — dois clientes na mesma sessão, um reservando e o outro vendo o lugar sumir sem recarregar — não é convincente com uma janela de oito segundos.
+O mapa dependia de polling a cada oito segundos. Reduzir a latência entre clientes diminui seleções de lugares já indisponíveis.
 
 ### Decisão
 
@@ -526,7 +512,7 @@ Uma revisão de segurança da API encontrou dois vazios. `POST /auth/login` acei
 
 Limitar tentativas malsucedidas **por origem da requisição, e nunca por conta**: vinte falhas em uma janela deslizante de quinze minutos passam a exigir um cooldown de sessenta segundos, respondido com `429` e `Retry-After`. A verificação acontece **antes** de `argon2.verify`, para que uma origem abusiva pare de consumir hash.
 
-A chave não conter o e-mail é a decisão central, e ela substitui uma primeira versão que usava `e-mail + origem`. Naquele desenho o bloqueio era anterior à conferência da senha, então a senha correta também era recusada durante o cooldown; como cada nova falha reiniciava o minuto, bastava uma tentativa errada por minuto para manter uma conta conhecida permanentemente indisponível. Com as credenciais de demonstração publicadas no README, isso seria uma negação de serviço trivial contra a própria avaliação — exatamente o oposto do que a proteção deveria fazer. Tirando a conta da chave, um cliente abusivo passa a limitar apenas a si mesmo e nenhum bloqueio direcionado a conta continua possível.
+A chave não conter o e-mail é a decisão central, e ela substitui uma primeira versão que usava `e-mail + origem`. Naquele desenho o bloqueio era anterior à conferência da senha, então a senha correta também era recusada durante o cooldown; como cada nova falha reiniciava o minuto, bastava uma tentativa errada por minuto para manter uma conta conhecida permanentemente indisponível. Com as credenciais de demonstração publicadas no README, isso seria uma negação de serviço trivial contra a demonstração — exatamente o oposto do que a proteção deveria fazer. Tirando a conta da chave, um cliente abusivo passa a limitar apenas a si mesmo e nenhum bloqueio direcionado a conta continua possível.
 
 O escopo real da proteção também foi renomeado com honestidade: ela protege a CPU do servidor contra um cliente que dispara Argon2 em série. Ela **não** é uma defesa contra adivinhação de senha das contas de demonstração, que não têm segredo a proteger. Para contas reais, o custo do Argon2id por tentativa continua sendo o limitador principal.
 
@@ -543,3 +529,53 @@ Adicionar `@fastify/rate-limit` e `@fastify/helmet`, limitar apenas por IP, limi
 O estado do limite é em memória e vale por processo — a mesma limitação já assumida no broadcaster do ADR-021. Com múltiplas réplicas o teto efetivo passa a ser vinte tentativas por réplica, o que ainda reduz a taxa, mas deixa de ser global; um limite compartilhado exigiria Redis, infraestrutura que esta topologia de instância única não justifica. O mapa é podado e tem teto de chaves para que um cliente variando a origem não o transforme em vazamento de memória. O preço aceito por eliminar o bloqueio por conta é que a proteção deixa de ser específica de credencial: um atacante distribuído por várias origens não é contido por ela.
 
 Duas dependências foram descartadas em favor de aproximadamente cem linhas próprias. `@fastify/rate-limit` resolveria o caso genérico, mas a decisão que importa aqui — chave composta, recusar a senha correta durante o bloqueio, verificar antes do Argon2 — é justamente a que a configuração padrão não toma. `helmet` traria um conjunto amplo em que `Cross-Origin-Resource-Policy` quebraria o frontend, que roda em outro site e consome esta API de forma legitimamente cross-site, e cuja CSP quebraria o Swagger UI. Preferiu-se o conjunto pequeno que se entende inteiro.
+
+## ADR-027 — Recuperação de leituras públicas
+
+GETs públicos de programação, sessão, assentos e compartilhamento fazem no máximo cinco tentativas em falhas transitórias. Intervalos base: 1,5 / 3 / 5 / 8 segundos, jitter de até 249 ms e timeout de oito segundos por tentativa. Retry-After prevalece quando maior; se ultrapassar trinta segundos, o erro é apresentado em vez de antecipar a requisição. AbortSignal encerra fetch e espera. Após 1,5 segundo, a página informa a inicialização fora da região aria-busy.
+
+Login, GETs autenticados e escritas ficam fora dessa política. Um erro de rede não informa se uma escrita foi confirmada. Erros finais preservam tentativa manual. A mensagem indica possibilidade de inicialização, não um diagnóstico comprovado da infraestrutura.
+
+## ADR-028 — Idempotência adiada, integridade mantida
+
+### Contexto
+
+Locks e constraints impedem duplicação de alocações ativas, pagamentos e consumo, mas não reproduzem a resposta anterior. Após uma resposta perdida, criar a mesma reserva pode retornar SEAT_UNAVAILABLE; pagar a mesma reserva retorna PAYMENT_ALREADY_PROCESSED. Isso é integridade, não idempotência de requisição.
+
+### Decisão
+
+Não adicionar Idempotency-Key nesta rodada. O pagamento é uma transição local simulada, sem débito externo, e o frontend não repete escritas automaticamente. O ID da reserva permite consultar seu estado; ingressos emitidos aparecem em Meus ingressos. Se a resposta de criação se perde antes de o ID chegar ao navegador, não existe recuperação transparente: o hold pode ocupar os lugares até expirar em dez minutos. Essa limitação é aceita e documentada.
+
+Armazenamento genérico de respostas, retenção e replay adicionariam um segundo ciclo de vida sem resolver uma integração financeira real. Cancelamento retorna conflito se já concluído, portaria retorna ALREADY_USED e recriar compartilhamento rotaciona o token; essas semânticas também não são replay HTTP.
+
+### Evolução
+
+Antes de automatizar retry de escrita ou integrar um provedor, persistir chave por usuário/operação, hash canônico do payload, resultado e expiração. Inserção única e lock da chave devem ocorrer na mesma transação do efeito local; payload distinto retorna 409. Chaves iguais concorrentes aguardam o mesmo commit. Retenção deve cobrir a janela de retry, com política de exclusão explícita; reuso após expiração é operação nova. Efeitos externos exigem idempotência do provedor e reconciliação/webhooks, não promessa de exactly-once baseada só no banco local. Testar resposta perdida, concorrência, conflito de payload, rollback e expiração antes de habilitar clientes.
+
+## ADR-029 — Hardening sem nova infraestrutura
+
+A API mantém CORS por origem exata, respostas sem cache, headers em onRequest inclusive SSE, HSTS sob HTTPS confiável e CSP própria do Swagger. O frontend tem CSP em vercel.json: scripts locais, conexão restrita à API real, imagens TMDb e câmera na própria origem. Estilos inline continuam autorizados para estilos dinâmicos React; scripts inline e eval não. Trocar VITE_API_URL de produção exige ajustar connect-src.
+
+Fastify e Swagger UI foram atualizados por alertas de segurança. Dois overrides restritos ao tooling Prisma corrigem deepmerge-ts e mysql2 sem migrar o ORM para uma versão candidata. Removê-los quando uma versão estável incorporar as correções. A aplicação usa PostgreSQL, mas a ferramenta instalada também faz parte da manutenção. Prisma validate/generate, migrations do zero, seed e testes verificam a compatibilidade exercitada.
+
+Axe-core foi adicionado só como dependência de desenvolvimento para verificar acessibilidade nos componentes existentes. Não foi introduzido framework visual ou segundo test runner.
+
+## ADR-030 — Emissão atual e validação retrocompatível de credenciais
+
+### Contexto
+
+Emissor, destinatário e chave de armazenamento fazem parte de contratos em uso. Renomeá-los sem transição interromperia sessões autenticadas e recusaria QRs de ingressos ainda válidos, sem benefício criptográfico. O objetivo de identidade independente não exige invalidar credenciais legítimas.
+
+### Decisão
+
+SEPTEM emite apenas a identidade atual, mas mantém validação retrocompatível dos contratos legítimos anteriores. Autenticação aceita exatamente o par atual ou o par anterior de login; ingresso aceita exatamente o par atual ou o par anterior da portaria. Pares cruzados, desconhecidos, incompletos ou de outra finalidade são rejeitados. Não existem duas allowlists independentes. Constantes legadas servem apenas à leitura; os emissores não recebem opção para escolher o contrato anterior.
+
+JWT de login conserva HS256, JWT_SECRET e oito horas de validade. A biblioteca verifica assinatura/expiração e exige iss, aud, sub, iat e exp; o guard compara o par completo antes de buscar o usuário e seu papel atual no banco. QR conserva HS256, TICKET_SIGNING_SECRET separado, tipo ticket, versão 1, IDs e expiração existentes. Ambos os QRs identificam o mesmo ingresso e passam pelo mesmo consumo condicional; aceitar duas representações não permite duas entradas.
+
+O frontend procura a chave atual antes da anterior. Somente após GET /auth/me confirmar a sessão, grava na chave atual e remove a antiga. Se as duas existirem, a atual prevalece; 401 limpa ambas sem trocar silenciosamente de identidade. Logout também limpa ambas. Falha temporária não apaga o token; falha na gravação mantém o fallback, com sessão em memória. Uma restauração abortada não migra storage.
+
+### Trade-offs e retirada
+
+Há uma pequena superfície explícita de compatibilidade no código/testes, sem reintroduzir a identidade anterior na apresentação pública. Não se alteram schema, reservas, pagamentos, ingressos, códigos manuais ou segredos. Não se estende expiração e não se recupera token já removido por uma versão incompatível.
+
+Não há data de corte arbitrária no validador: retirar suporte exige encerrar emissão por instâncias antigas e deixar expirar os contratos ainda utilizáveis. Login possui janela de oito horas; QR depende da sessão e pode durar mais. O runbook descreve rollout e rollback sem permitir emissão nova com identificadores anteriores. Testes protegem pares, assinatura, expiração, finalidade, emissão SEPTEM, migração do storage e consumo único entre representações.

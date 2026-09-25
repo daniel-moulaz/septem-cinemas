@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError, getSharedTicket, type SharedTicket as SharedTicketData } from '../../api'
 import { DigitalTicket } from './DigitalTicket'
+import { ServerStartingNotice } from '../common/ServerStartingNotice'
 
 interface SharedTicketProps {
   token: string
@@ -61,6 +62,7 @@ export function SharedTicket({ token, onBack }: SharedTicketProps) {
 
     getSharedTicket(token, controller.signal)
       .then((result) => {
+        if (controller.signal.aborted) return
         setTicket(result)
         setStatus('ready')
       })
@@ -79,6 +81,7 @@ export function SharedTicket({ token, onBack }: SharedTicketProps) {
   if (status === 'loading') {
     return (
       <div className="public-content shared-ticket-page">
+        <ServerStartingNotice />
         <div className="content-state public-state" aria-busy="true" aria-live="polite">
           <p className="section-kicker">Ingresso compartilhado</p>
           <h1>Validando o link…</h1>

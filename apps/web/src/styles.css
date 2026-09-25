@@ -5555,3 +5555,11 @@ html.is-offline .login-shell {
   font-weight: 820;
   line-height: 1.25;
 }
+/* Kept outside busy skeletons so assistive technology can announce it. */
+.server-starting-notice {
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+.server-starting-notice:empty { display: none; }
