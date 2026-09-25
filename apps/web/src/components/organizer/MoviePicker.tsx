@@ -73,6 +73,7 @@ export function MoviePicker({
 
     getCatalogMovies(accessToken, request.query, controller.signal)
       .then((response) => {
+        if (controller.signal.aborted) return
         setMovies(response.movies)
       })
       .catch((requestError: unknown) => {

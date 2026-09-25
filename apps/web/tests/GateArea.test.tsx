@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthenticatedUser, GateConsumeResult } from '../src/api'
+import axe from 'axe-core'
 
 vi.mock('../src/api', () => ({
   ApiError: class ApiError extends Error {},
@@ -64,6 +65,12 @@ beforeEach(() => {
 })
 
 describe('portaria', () => {
+  it('oferece formulário manual acessível', async () => {
+    const user = userEvent.setup()
+    const { container } = renderGate()
+    await selectSession(user)
+    expect((await axe.run(container, { rules: { 'color-contrast': { enabled: false } } })).violations).toEqual([])
+  })
   it('não chama a API quando o código está vazio ou só com espaços', async () => {
     const user = userEvent.setup()
     renderGate()

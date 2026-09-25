@@ -165,6 +165,7 @@ export function OrganizerArea({
             key={`session-${screen.sessionId}`}
             accessToken={accessToken}
             sessionId={screen.sessionId}
+            onCreated={handleSessionCreated}
             onBack={() => changeScreen({ name: 'sessions' })}
             onDirtyChange={setHasUnsavedChanges}
             onBusyChange={setIsEditorBusy}

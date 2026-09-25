@@ -2,6 +2,10 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 
+// jsdom does not implement native dialog top-layer behavior.
+HTMLDialogElement.prototype.showModal = function () { this.open = true }
+HTMLDialogElement.prototype.close = function () { this.open = false }
+
 // O jsdom não implementa matchMedia, usado pela portaria para adaptar a
 // leitura em tablet. Sem este stub, qualquer render de GateArea falha.
 if (!window.matchMedia) {
