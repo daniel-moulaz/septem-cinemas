@@ -3,7 +3,7 @@
 ## API lenta ou frontend sem dados
 
 1. Abra `/health` na API. `200 {"status":"ok"}` confirma que o processo responde, **não** que o banco está saudável.
-2. Consulte `/sessions` e confira o status HTTP. Um catálogo vazio com 200 pode significar que as datas demo passaram; 500 exige examinar o banco e logs.
+2. Consulte `/sessions` e confira o status HTTP. Um catálogo vazio com 200 pode significar que as datas demo passaram; 500 exige examinar o banco e logs. Um 500 isolado com `57P03` (`the database system is starting up`) logo depois que o serviço acorda indica PostgreSQL ainda iniciando; as leituras públicas repetem a requisição.
 3. Nas páginas públicas, aguarde a recuperação limitada de cold start. Falha final oferece Tentar novamente. Não repita pagamento ou reserva automaticamente: consulte o estado conhecido primeiro.
 4. Confira `VITE_API_URL` no build do frontend, `WEB_ORIGIN` na API e `connect-src` em `apps/web/vercel.json`. Alterar variável Vite exige rebuild. CORS não substitui autenticação.
 5. Confira logs Railway, disponibilidade do serviço e conexão com PostgreSQL. Não cole tokens, URLs de conexão ou credenciais de ingresso em tickets públicos.
@@ -56,9 +56,9 @@ O catálogo do organizador pode retornar TMDB_NOT_CONFIGURED, TMDB_TIMEOUT ou TM
 ## Deploy e rollback
 
 1. Rode check e mutation proof antes do push. O repositório é `daniel-moulaz/septem-cinemas`; o domínio real gerado para a API permanece o listado no README.
-2. Railway usa a raiz do monorepo, Railpack, build/start de `@septem/api`, migrations em pre-deploy e `/health`. Configure segredos distintos, DATABASE_URL, WEB_ORIGIN e API_HOST conforme o ambiente. PORT é fornecida pela plataforma.
+2. Railway usa a raiz do monorepo, Railpack, build/start de `@septem/api`, migrations em pre-deploy e `/health`. Configure segredos distintos, DATABASE_URL, WEB_ORIGIN e API_HOST conforme o ambiente. PORT é fornecida pela plataforma. No plano Free, o Railway recusa o deploy de serviço sem App Sleeping (serverless) antes do pre-deploy e mantém o deployment anterior no ar: confira o commit do deployment ativo, não apenas `/health`.
 3. Ative TRUST_PROXY somente atrás do proxy controlado da hospedagem, garantindo que ele sobrescreva headers encaminhados. Sem isso, IP de origem e HSTS podem ser interpretados incorretamente.
-4. Vercel usa `apps/web`; `vercel.json` aplica rewrite SPA e headers. Se mudar a origem da API, ajuste a CSP e VITE_API_URL juntos. `camera=(self)` permite o scanner; imagens TMDb são explicitamente autorizadas.
+4. Vercel usa `apps/web`; `vercel.json` fixa install/build do monorepo, que prevalecem sobre o dashboard, e aplica rewrite SPA e headers. Se mudar a origem da API, ajuste a CSP e VITE_API_URL juntos. `camera=(self)` permite o scanner; imagens TMDb são explicitamente autorizadas.
 5. Smoke: programação → sessão → assentos; login cliente → reserva → aprovação → ingresso; organizador → criar/editar/publicar; portaria → VALID e ALREADY_USED. Use ingressos criados para o smoke para preservar a demonstração.
 6. Em regressão, reverta para um commit/deployment conhecido e compatível com o schema aplicado. Migrations não têm rollback automático: preserve backup e prefira correção incremental quando o código anterior não puder ler o schema atual. Nunca faça reset do banco para reverter código.
 

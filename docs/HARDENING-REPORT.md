@@ -111,6 +111,23 @@ Continuam deliberadamente fora desta rodada: integração financeira/refund, ide
 
 URLs canônicas de repositório e demo estão no [README](../README.md). Nenhum push, merge ou deploy foi realizado nesta rodada.
 
+## Rollout em produção (2026-09-25)
+
+Depois do merge em `main` (`e2592df`):
+
+- **Vercel:** o primeiro deploy falhou porque o Build Command salvo no projeto ainda apontava para `@elite-dev/web`; nenhum arquivo do repositório continha esse valor. `apps/web/vercel.json` passou a fixar install e build do monorepo (`6bed786`) e o valor do dashboard foi alinhado. O domínio público serve o bundle desse build, com a CSP e os headers de `vercel.json` aplicados.
+- **Railway:** os deploys de `e2592df` e `6bed786` foram recusados na validação de configuração (`Free plan deployments must be serverless`): o workspace está no plano Free e o serviço está com App Sleeping desativado. O build passou; a recusa ocorre antes do pre-deploy, então nenhuma migration rodou. A produção continua no deployment de 27/08 (`37e755e`, logs com `@elite-dev/api`). **Pendente:** reativar o serverless do serviço e publicar `main`.
+- **500 em `/sessions`:** os logs do deployment ativo mostram `57P03 the database system is starting up` na primeira consulta depois que serviço e PostgreSQL acordam; as requisições seguintes responderam 200. É indisponibilidade transitória de cold start, em código anterior a esta rodada, e não regressão.
+
+Smoke no domínio público com Chrome headless via DevTools Protocol, frontend novo sobre a API `37e755e`:
+
+- Cold start real, com API e banco dormindo: aviso "Inicializando o servidor…" após 1,5 s → 500 `57P03` → retry automático → 200. Programação exibida em ~9,5 s sem ação do usuário.
+- Programação → sessão → mapa com 40 assentos. Deep link direto para a sessão também carregou.
+- API indisponível, com 503 injetado no navegador: cinco tentativas em ~18,7 s, aviso removido e erro final com Tentar novamente. O clique recuperou a programação.
+- Falhas transitórias na sessão (duas conexões recusadas e dois 503): mapa carregado automaticamente em ~7 s, sem botão de retry.
+
+A ordem do runbook (API antes do frontend) ficou invertida porque a API não pôde ser publicada. O frontend novo não depende de contrato novo da API: sem `Retry-After` exposto pela API antiga, o cliente usa o próprio backoff, e a API antiga só emite a identidade anterior. Fluxos autenticados (reserva, organizador e portaria) não foram exercitados em produção e devem entrar no smoke depois da publicação da API.
+
 ## Commits
 
 | Commit | Conteúdo |
