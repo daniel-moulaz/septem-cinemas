@@ -13,14 +13,14 @@ export default defineConfig([
     'apps/api/src/generated/prisma/**',
   ]),
   {
-    files: ['*.mjs'],
+    files: ['*.mjs', 'scripts/**/*.mjs'],
     extends: [js.configs.recommended],
     languageOptions: {
       globals: globals.node,
     },
   },
   {
-    files: ['apps/api/**/*.ts', 'apps/web/*.ts'],
+    files: ['apps/api/**/*.ts', 'apps/web/*.ts', 'apps/web/tests/**/*.{ts,tsx}'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
     languageOptions: {
       globals: globals.node,
