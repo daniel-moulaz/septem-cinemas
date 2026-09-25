@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm --prefix ../.. ci",
+  "buildCommand": "npm --prefix ../.. run build --workspace=@septem/web",
   "rewrites": [
     {
       "source": "/(.*)",
