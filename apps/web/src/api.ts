@@ -1,3 +1,5 @@
+import { publicRead } from './public-read'
+
 export type Role = 'ORGANIZER' | 'CUSTOMER' | 'GATE'
 
 export interface AuthenticatedUser {
@@ -348,7 +350,10 @@ export class ApiError extends Error {
 }
 
 async function readResponse<T>(response: Response): Promise<T> {
-  const body: unknown = await response.json().catch(() => null)
+  const body: unknown = await response.json().catch((error: unknown) => {
+    if (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name)) throw error
+    return null
+  })
 
   if (!response.ok) {
     const errorBody = body as ErrorResponse | null
@@ -362,6 +367,9 @@ async function readResponse<T>(response: Response): Promise<T> {
     throw new ApiError(message, response.status, code)
   }
 
+  if (body === null && response.status !== 204) {
+    throw new ApiError('O servidor retornou uma resposta inválida.', 502)
+  }
   return body as T
 }
 
@@ -369,11 +377,7 @@ async function publicRequest<T>(
   path: string,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, {
-    signal: signal ?? null,
-  })
-
-  return readResponse<T>(response)
+  return publicRead(`${apiUrl}${path}`, readResponse<T>, signal)
 }
 
 async function authenticatedRequest<T>(

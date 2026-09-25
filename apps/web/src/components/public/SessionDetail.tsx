@@ -20,6 +20,7 @@ import {
   tmdbPosterUrl,
 } from '../organizer/formatters'
 import { PosterImage } from '../common/PosterImage'
+import { ServerStartingNotice } from '../common/ServerStartingNotice'
 import { useToast } from '../common/toast'
 
 const maximumSeatsPerReservation = 6
@@ -122,6 +123,7 @@ export function SessionDetail({
       getSessionSeats(sessionId, controller.signal),
     ])
       .then(([sessionResult, seatResult]) => {
+        if (controller.signal.aborted) return
         setSession(sessionResult)
         setSeats(seatResult)
         seatsRef.current = seatResult
@@ -139,6 +141,7 @@ export function SessionDetail({
             : 'Não foi possível carregar esta sessão.',
         )
         setStatus('error')
+        controller.abort()
       })
 
     return () => controller.abort()
@@ -335,6 +338,7 @@ export function SessionDetail({
     }
 
     const source = new EventSource(sessionEventsUrl(sessionId))
+    let detailController: AbortController | undefined
 
     function handleInvalidation() {
       // O evento nunca traz o estado dos assentos: ele apenas manda reconsultar
@@ -354,9 +358,12 @@ export function SessionDetail({
     function handleSessionChanged() {
       // Dados estruturais mudaram (horário, local, preço, filme ou layout):
       // reconsulta a sessão e o mapa, que continuam sendo a autoridade.
-      getPublicSession(sessionId)
+      detailController?.abort()
+      const controller = new AbortController()
+      detailController = controller
+      getPublicSession(sessionId, controller.signal)
         .then((refreshed) => {
-          if (mountedRef.current) {
+          if (mountedRef.current && !controller.signal.aborted) {
             setSession(refreshed)
           }
         })
@@ -377,6 +384,7 @@ export function SessionDetail({
     source.addEventListener('error', handleError)
 
     return () => {
+      detailController?.abort()
       source.removeEventListener('open', handleOpen)
       source.removeEventListener('sync', handleSync)
       source.removeEventListener('seats-changed', handleInvalidation)
@@ -577,6 +585,7 @@ export function SessionDetail({
   if (status === 'loading') {
     return (
       <div className="public-content">
+        <ServerStartingNotice />
         <div className="content-state public-state" aria-live="polite" aria-busy="true">
           <p className="section-kicker">Carregando</p>
           <h1>Preparando a sala…</h1>
