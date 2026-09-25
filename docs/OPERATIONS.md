@@ -26,6 +26,8 @@ npm run db:seed
 
 Seed é exclusivo de demonstração: altera datas/senhas e pode restaurar o ingresso usado ainda alocado. Ele não limpa tudo. Use banco isolado para testes e nunca agende seed no restart da API.
 
+Na base pública, não rode o seed: ele moveria para o futuro sessões antigas que já têm vendas. Renove a programação demo criando e publicando sessões novas pelo painel ou pela API do organizador, antes de a última sessão passar. Datas passadas somem da programação pública, mas o histórico permanece.
+
 A renomeação de packages não renomeia bancos ou volumes existentes. Em instalações locais anteriores, mantenha no `.env` o usuário e banco realmente provisionados, ou prepare outro banco com os defaults novos. Não remova volumes para corrigir nomes.
 
 ## Validação reproduzível
@@ -56,7 +58,7 @@ O catálogo do organizador pode retornar TMDB_NOT_CONFIGURED, TMDB_TIMEOUT ou TM
 ## Deploy e rollback
 
 1. Rode check e mutation proof antes do push. O repositório é `daniel-moulaz/septem-cinemas`; o domínio real gerado para a API permanece o listado no README.
-2. Railway usa a raiz do monorepo, Railpack, build/start de `@septem/api`, migrations em pre-deploy e `/health`. Configure segredos distintos, DATABASE_URL, WEB_ORIGIN e API_HOST conforme o ambiente. PORT é fornecida pela plataforma. No plano Free, o Railway recusa o deploy de serviço sem App Sleeping (serverless) antes do pre-deploy e mantém o deployment anterior no ar: confira o commit do deployment ativo, não apenas `/health`.
+2. Railway usa a raiz do monorepo, Railpack, build/start de `@septem/api`, migrations em pre-deploy e `/health`. Configure segredos distintos, DATABASE_URL, WEB_ORIGIN e API_HOST conforme o ambiente. PORT é fornecida pela plataforma. No plano Free, o Railway recusa o deploy de serviço sem App Sleeping (serverless) antes do pre-deploy e mantém o deployment anterior no ar: confira o commit do deployment ativo, não apenas `/health`. Mudanças feitas no painel ficam staged até serem aplicadas pelo Deploy do banner; Redeploy de um deployment antigo reutiliza a configuração dele. Com o PostgreSQL também dormindo, o pre-deploy pode falhar com `P1001` antes de o banco acordar: nada é migrado e o deployment anterior continua no ar. Acorde o banco com uma leitura (`/sessions`) e publique de novo.
 3. Ative TRUST_PROXY somente atrás do proxy controlado da hospedagem, garantindo que ele sobrescreva headers encaminhados. Sem isso, IP de origem e HSTS podem ser interpretados incorretamente.
 4. Vercel usa `apps/web`; `vercel.json` fixa install/build do monorepo, que prevalecem sobre o dashboard, e aplica rewrite SPA e headers. Se mudar a origem da API, ajuste a CSP e VITE_API_URL juntos. `camera=(self)` permite o scanner; imagens TMDb são explicitamente autorizadas.
 5. Smoke: programação → sessão → assentos; login cliente → reserva → aprovação → ingresso; organizador → criar/editar/publicar; portaria → VALID e ALREADY_USED. Use ingressos criados para o smoke para preservar a demonstração.

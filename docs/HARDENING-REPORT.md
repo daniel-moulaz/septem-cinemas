@@ -116,7 +116,7 @@ URLs canônicas de repositório e demo estão no [README](../README.md). Nenhum 
 Depois do merge em `main` (`e2592df`):
 
 - **Vercel:** o primeiro deploy falhou porque o Build Command salvo no projeto ainda apontava para `@elite-dev/web`; nenhum arquivo do repositório continha esse valor. `apps/web/vercel.json` passou a fixar install e build do monorepo (`6bed786`) e o valor do dashboard foi alinhado. O domínio público serve o bundle desse build, com a CSP e os headers de `vercel.json` aplicados.
-- **Railway:** os deploys de `e2592df` e `6bed786` foram recusados na validação de configuração (`Free plan deployments must be serverless`): o workspace está no plano Free e o serviço está com App Sleeping desativado. O build passou; a recusa ocorre antes do pre-deploy, então nenhuma migration rodou. A produção continua no deployment de 27/08 (`37e755e`, logs com `@elite-dev/api`). **Pendente:** reativar o serverless do serviço e publicar `main`.
+- **Railway:** os deploys de `e2592df` e `6bed786` foram recusados na validação de configuração (`Free plan deployments must be serverless`): o workspace está no plano Free e o serviço está com App Sleeping desativado. O build passou; a recusa ocorre antes do pre-deploy, então nenhuma migration rodou. A produção seguiu no deployment de 27/08 (`37e755e`, logs com `@elite-dev/api`) até a correção abaixo.
 - **500 em `/sessions`:** os logs do deployment ativo mostram `57P03 the database system is starting up` na primeira consulta depois que serviço e PostgreSQL acordam; as requisições seguintes responderam 200. É indisponibilidade transitória de cold start, em código anterior a esta rodada, e não regressão.
 
 Smoke no domínio público com Chrome headless via DevTools Protocol, frontend novo sobre a API `37e755e`:
@@ -126,7 +126,29 @@ Smoke no domínio público com Chrome headless via DevTools Protocol, frontend n
 - API indisponível, com 503 injetado no navegador: cinco tentativas em ~18,7 s, aviso removido e erro final com Tentar novamente. O clique recuperou a programação.
 - Falhas transitórias na sessão (duas conexões recusadas e dois 503): mapa carregado automaticamente em ~7 s, sem botão de retry.
 
-A ordem do runbook (API antes do frontend) ficou invertida porque a API não pôde ser publicada. O frontend novo não depende de contrato novo da API: sem `Retry-After` exposto pela API antiga, o cliente usa o próprio backoff, e a API antiga só emite a identidade anterior. Fluxos autenticados (reserva, organizador e portaria) não foram exercitados em produção e devem entrar no smoke depois da publicação da API.
+A ordem do runbook (API antes do frontend) ficou invertida porque a API não pôde ser publicada. O frontend novo não depende de contrato novo da API: sem `Retry-After` exposto pela API antiga, o cliente usa o próprio backoff, e a API antiga só emite a identidade anterior.
+
+### Publicação da API
+
+A reativação de App Sleeping estava staged no painel e não havia sido aplicada. Depois de aplicada, o deploy de `977898d` falhou no pre-deploy com `P1001` porque o PostgreSQL dormia. Com o banco acordado por uma leitura pública, o novo deploy passou: `No pending migrations to apply`, healthcheck 200 e logs com `@septem/api`. Os headers exclusivos desta rodada (`Cache-Control: no-store`, `Permissions-Policy` e HSTS) confirmaram a versão em produção.
+
+Smoke autenticado em produção, pela API e pela UI em Chrome headless:
+
+- Organizador: login com contrato SEPTEM → rascunho com snapshot TMDb → rascunho oculto do público → edição de horário e preço → publicação → segunda publicação recusada com 409 → sessão visível na programação e na área do organizador.
+- Cliente: login SEPTEM → reserva de três lugares com hold de dez minutos → mesmo lugar recusado para outra conta → pagamento aprovado → três ingressos com QR (`septem-cinemas-api`/`septem-cinemas-gate`) e código manual → repetição do pagamento recusada → ingresso alheio respondido como 404 → cancelamento individual com lugar liberado. Pela UI: login pedido ao reservar, compra, ingresso com QR, cancelamento, logout limpando a credencial, login exigido em Meus ingressos e novo login.
+- Compatibilidade legada: a chave anterior de armazenamento foi restaurada e migrada para a chave SEPTEM pela UI. JWTs e QRs com o contrato anterior não foram forjados em produção, porque isso exigiria os segredos reais; esses casos seguem cobertos pela suíte de integração da CI.
+- Portaria: QR `VALID` → mesmo QR e código manual `ALREADY_USED` → código manual em minúsculas `VALID` → ingresso cancelado `INVALID` → outra sessão `WRONG_EVENT` → credencial inválida `INVALID`. Na UI, o código manual de um ingresso consumido exibiu "INGRESSO JÁ UTILIZADO".
+- SSE: `text/event-stream`, `X-Accel-Buffering: no`, `sync` inicial e `seats-changed` após hold, pagamento e cancelamento.
+- Erros: 404, 401, 403, 400, 409 e login inválido retornam apenas `error`/`message`; e-mail inexistente responde igual a senha errada.
+- CORS: o preflight do frontend é aceito e expõe `Retry-After`. A API responde sempre com a origem configurada, e um navegador em outra origem teve leitura e preflight bloqueados.
+- Swagger UI com CSP própria e OpenAPI 3.0.3 com 24 rotas. Os logs do deployment não registraram 5xx durante o smoke.
+- Cold start da API nova, com serviço e banco dormindo: 500 (erro de conexão do Prisma), 500 (`57P03`) e 200. Aviso exibido em 2,4 s e programação carregada em 8,1 s sem ação do usuário.
+
+Resíduo do smoke: a sessão de Oppenheimer de 25/09, às 19:00, integra a programação demo e mantém E5 e E6 vendidos e consumidos na portaria, porque ingressos usados não podem ser cancelados. As compras restantes do smoke foram canceladas e seus lugares, liberados.
+
+### Programação demo
+
+A programação pública tinha uma única sessão futura: as sessões do seed já haviam passado. O seed não foi executado na base pública, porque moveria sessões antigas com vendas. A semana de 25/09 a 01/10 foi criada pelo fluxo do organizador, com snapshot TMDb, rascunho e publicação, nos quatro layouts de sala do seed. Ela reúne sete filmes com quatro sessões cada — Ainda Estou Aqui, Oppenheimer, Godzilla Minus One, Barbie, Mad Max: Estrada da Fúria, Homem-Aranha: Através do Aranhaverso e Duna: Parte Dois —, totalizando 28 sessões publicadas, sendo uma já existente. Os preços variam de R$ 24 a R$ 36, e não há sobreposição na mesma sala, considerando a duração do filme mais 20 minutos. A validação na UI abriu uma sessão de cada filme a partir de "Em cartaz", com mapa completo, horário igual ao da API e todas as imagens TMDb carregadas em desktop e mobile.
 
 ## Commits
 
