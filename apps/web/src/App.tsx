@@ -58,15 +58,26 @@ const TicketList = lazy(() =>
 )
 
 const accessTokenKey = 'septem-access-token'
+const legacyAccessTokenKey = 'elite-dev-access-token'
 
 function readAccessToken() {
-  try { return sessionStorage.getItem(accessTokenKey) } catch { return null }
+  try {
+    return sessionStorage.getItem(accessTokenKey) ?? sessionStorage.getItem(legacyAccessTokenKey)
+  } catch { return null }
 }
 
 function storeAccessToken(token: string | null) {
+  if (token === null) {
+    for (const key of [accessTokenKey, legacyAccessTokenKey]) {
+      try { sessionStorage.removeItem(key) } catch { /* Storage may be disabled. */ }
+    }
+    return
+  }
   try {
-    if (token) sessionStorage.setItem(accessTokenKey, token)
-    else sessionStorage.removeItem(accessTokenKey)
+    sessionStorage.setItem(accessTokenKey, token)
+    // Only discard the fallback after the current token was stored, or on
+    // explicit logout/invalidation. A failed write preserves recovery.
+    sessionStorage.removeItem(legacyAccessTokenKey)
   } catch {
     // Login can still live in memory when browser storage is unavailable.
   }
@@ -466,6 +477,7 @@ export function App() {
     getCurrentUser(accessToken, controller.signal)
       .then((user) => {
         if (controller.signal.aborted) return
+        storeAccessToken(accessToken)
         setAuthState({ status: 'authenticated', user, accessToken })
       })
       .catch((error: unknown) => {

@@ -215,3 +215,7 @@ Leituras públicas passam por public-read.ts, com retries transitórios limitado
 SessionEditor apresenta o editor; useSessionEditor coordena carregamento e operações; useSessionForm mantém validação e dirty state; SessionPresentation concentra prévia e leitura operacional. Eventos são agregados durante um fetch e complementados por polling de oito segundos. Atualizações operacionais não substituem os campos em edição. Durante uma mutação, o refresh anterior é abortado para não sobrescrever seu resultado.
 
 Ver CONCURRENCY-PROOF.md, KNOWN-LIMITATIONS.md e DECISIONS.md para as provas, limites e decisão sobre idempotência.
+
+## Compatibilidade de credenciais
+
+Novos JWTs de login e QR usam somente a identidade SEPTEM. Os validadores aceitam também os pares completos legítimos anteriores, mantendo separação de finalidade/segredo, assinatura, expiração e consulta ao estado atual do banco. Não há migração de dados: QR é derivado do mesmo ingresso persistido. No navegador, a chave atual tem prioridade; o token anterior é migrado após confirmação por /auth/me. Ver ADR-030 e OPERATIONS.md para retirada do suporte e rollout.

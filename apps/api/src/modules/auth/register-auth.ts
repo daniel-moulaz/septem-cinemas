@@ -20,8 +20,9 @@ export function registerAuth(app: FastifyInstance) {
     },
     verify: {
       algorithms: ['HS256'],
-      allowedIss: AUTH_TOKEN_ISSUER,
-      allowedAud: AUTH_TOKEN_AUDIENCE,
+      requiredClaims: ['iss', 'aud', 'sub', 'iat', 'exp'],
+      // authenticateRequest validates issuer/audience as a complete pair
+      // after signature/expiration checks; independent lists admit mixed pairs.
     },
   })
 

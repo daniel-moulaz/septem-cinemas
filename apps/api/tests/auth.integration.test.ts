@@ -1,4 +1,5 @@
 import * as argon2 from 'argon2'
+import { createHmac } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { DEMO_PASSWORD, DEMO_USERS } from '../prisma/seed-data.js'
 import { buildApp } from '../src/app.js'
@@ -110,6 +111,60 @@ function tamperSignature(accessToken: string) {
 
   return tokenParts.join('.')
 }
+
+// Independent fixture signing: production login must never emit legacy claims.
+function signedAuthFixture(overrides: Record<string, unknown> = {}, secret = process.env.JWT_SECRET!, algorithm = 'HS256') {
+  const now = Math.floor(Date.now() / 1_000)
+  const payload = {
+    sub: getLogin('customer1@demo.local').user.id, role: Role.CUSTOMER,
+    iss: 'septem-cinemas-api', aud: 'septem-cinemas-web', iat: now, exp: now + 3_600,
+    ...overrides,
+  }
+  const input = [ { alg: algorithm, typ: 'JWT' }, payload ]
+    .map((part) => Buffer.from(JSON.stringify(part)).toString('base64url')).join('.')
+  return `${input}.${createHmac('sha256', secret).update(input).digest('base64url')}`
+}
+
+describe('authentication contract compatibility', () => {
+  it.each([
+    ['elite-dev-verzel-api', 'elite-dev-verzel-web', 200],
+    ['septem-cinemas-api', 'septem-cinemas-web', 200],
+    ['elite-dev-verzel-api', 'septem-cinemas-web', 401],
+    ['septem-cinemas-api', 'elite-dev-verzel-web', 401],
+    ['unknown', 'septem-cinemas-web', 401],
+    ['septem-cinemas-api', 'unknown', 401],
+    ['elite-dev-verzel-api', 'elite-dev-verzel-gate', 401],
+    ['septem-cinemas-api', 'septem-cinemas-gate', 401],
+    ['septem-cinemas-api', ['septem-cinemas-web'], 401],
+  ])('validates the complete pair %s / %s', async (iss, aud, status) => {
+    const response = await app.inject({ url: '/auth/me', headers: authorization(signedAuthFixture({ iss, aud })) })
+    expect(response.statusCode).toBe(status)
+    if (status === 200) expect(response.json()).toEqual(getLogin('customer1@demo.local').user)
+    else expect(response.json().error).toBe('UNAUTHORIZED')
+  })
+
+  it.each(['iss', 'aud', 'sub', 'iat', 'exp'])('requires %s even on an otherwise signed token', async (claim) => {
+    const response = await app.inject({ url: '/auth/me', headers: authorization(signedAuthFixture({ [claim]: undefined })) })
+    expect(response.statusCode).toBe(401)
+  })
+
+  it.each([
+    { iss: 'elite-dev-verzel-api', aud: 'elite-dev-verzel-web' },
+    { iss: 'septem-cinemas-api', aud: 'septem-cinemas-web' },
+  ])('preserves signature, expiration, algorithm, key separation and RBAC for $iss', async (contract) => {
+    for (const token of [
+      tamperSignature(signedAuthFixture(contract)),
+      signedAuthFixture({ ...contract, exp: Math.floor(Date.now() / 1_000) - 1 }),
+      signedAuthFixture(contract, process.env.TICKET_SIGNING_SECRET!),
+      signedAuthFixture(contract, process.env.JWT_SECRET!, 'HS512'),
+    ]) {
+      const response = await app.inject({ url: '/auth/me', headers: authorization(token) })
+      expect(response.statusCode).toBe(401)
+    }
+    const response = await app.inject({ url: '/__tests/organizer', headers: authorization(signedAuthFixture({ ...contract, role: Role.ORGANIZER })) })
+    expect(response.statusCode).toBe(403)
+  })
+})
 
 describe('seed de autenticação', () => {
   it('contains exactly the four demo users with the expected roles and hashes', async () => {
@@ -411,10 +466,7 @@ describe('GET /auth/me and JWT validation', () => {
   })
 
   it('rejects a validly signed token when its subject no longer identifies a user', async () => {
-    const token = app.jwt.sign(
-      { role: Role.ORGANIZER },
-      { sub: '00000000-0000-4000-8000-000000000000' },
-    )
+    const token = app.jwt.sign({ role: Role.ORGANIZER, sub: '00000000-0000-4000-8000-000000000000' })
     const response = await app.inject({
       method: 'GET',
       url: '/auth/me',
@@ -506,10 +558,7 @@ describe('RBAC', () => {
 
   it('uses the current database role instead of the role claim', async () => {
     const customer = getLogin('customer1@demo.local').user
-    const tokenWithWrongRole = app.jwt.sign(
-      { role: Role.ORGANIZER },
-      { sub: customer.id },
-    )
+    const tokenWithWrongRole = app.jwt.sign({ role: Role.ORGANIZER, sub: customer.id })
     const response = await app.inject({
       method: 'GET',
       url: '/__tests/organizer',

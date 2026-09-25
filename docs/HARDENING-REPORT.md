@@ -10,8 +10,8 @@ Ambiente: Windows, Node.js 24.19.0, PostgreSQL 17 em container local dedicado. O
 |---|---|---|
 | Instalação pelo lockfile | `npm ci` passou | `npm ci` passou novamente |
 | Audit de dependências | 8 alertas: 6 altos, 2 moderados | 0 alertas no momento da execução |
-| API | 191 testes, 18 arquivos, todos passaram | **208 testes, 21 arquivos, todos passaram** |
-| Frontend | 17 testes, 5 arquivos; 16 passaram e 1 falhou | **65 testes, 8 arquivos, todos passaram** |
+| API | 191 testes, 18 arquivos, todos passaram | **236 testes, 21 arquivos, todos passaram** |
+| Frontend | 17 testes, 5 arquivos; 16 passaram e 1 falhou | **73 testes, 8 arquivos, todos passaram** |
 | Lint | Passou | Passou com `--max-warnings=0`, incluindo scripts e testes web |
 | Typecheck | Passou | Passou nos dois workspaces |
 | Builds | Passaram em execução separada | Passaram dentro de `npm run check` |
@@ -20,7 +20,11 @@ Ambiente: Windows, Node.js 24.19.0, PostgreSQL 17 em container local dedicado. O
 | Seed | Fixtures preparadas | Duas execuções bem-sucedidas no banco novo |
 | Mutation proof | Runner inexistente | Controles passaram, duas mutações detectadas, controle restaurado passou |
 
-Total final: **273 testes em 29 arquivos**, sem falhas ou skips nas suítes completas. São 65 casos adicionais em relação aos 208 casos existentes, além da correção do caso que falhava. Os testes selecionados pelo runner de mutação são execuções adicionais dos mesmos casos, não entram novamente nessa contagem. Não foi medido percentual de cobertura nem throughput.
+Total final, incluindo o ajuste de retrocompatibilidade: **309 testes em 29 arquivos**, sem falhas ou skips nas suítes completas. São 101 casos adicionais em relação aos 208 casos existentes, além da correção do caso que falhava. Os testes selecionados pelo runner de mutação são execuções adicionais dos mesmos casos, não entram novamente nessa contagem. Não foi medido percentual de cobertura nem throughput.
+
+O ajuste de compatibilidade acrescentou 28 casos de API e oito de frontend aos 273 casos aprovados na primeira entrega. Testes direcionados: 61 casos de autenticação/ingressos e 12 de App passaram. Depois, npm run check executou as suítes completas acima, lint, Prisma validate/generate, typecheck e os dois builds com exit code 0. A mutation proof foi repetida e passou. Não houve alteração de dependências, schema, migrations ou dados de produção nesse ajuste; as integrações usaram somente o banco local dedicado.
+
+Exigir claims de autenticação revelou que 44 chamadas de assinatura nas fixtures substituíam os defaults ao fornecer opções só com sub. Elas passaram a fornecer sub no payload, preservando o signer configurado com emissor, destinatário e expiração reais. A validação não foi relaxada para acomodar as fixtures. Os testes de contrato também criam assinaturas independentes para verificar rejeição de claims ausentes, pares cruzados/desconhecidos, assinatura, algoritmo, segredo de outra finalidade e expiração. O consumo de QR anterior seguido do atual, e na ordem inversa, confirma apenas uma entrada para o mesmo ingresso, sem reescrever seus dados ao consultar o QR.
 
 O baseline falhava porque o teste de SessionEditor fixava uma data que já havia passado. A fixture agora calcula uma sessão futura. O build independente do baseline foi executado após o início dos primeiros ajustes; não é apresentado como um `check` original aprovado.
 
@@ -83,9 +87,9 @@ Raiz `septem-cinemas`, workspaces `@septem/api` e `@septem/web`, lockfile, scrip
 
 Foram criados [CONCURRENCY-PROOF](CONCURRENCY-PROOF.md), [KNOWN-LIMITATIONS](KNOWN-LIMITATIONS.md), [OPERATIONS](OPERATIONS.md) e este relatório. Nenhum histórico Git foi reescrito. Arquivos locais antigos de contexto, já ignorados pelo Git, foram arquivados fora do repositório.
 
-A busca final por identidade anterior e linguagem de seleção encontrou somente **três ocorrências do domínio real da API**: duas no README e uma em `connect-src`. Elas foram preservadas deliberadamente. Não houve troca estética de URL de produção, credenciais locais ou nomes de banco/volume já provisionados.
+A apresentação pública mantém somente as três referências necessárias ao domínio real da API: duas no README e uma em connect-src. Identificadores de protocolo anteriores ficam restritos à aceitação retrocompatível no código e às fixtures de teste. Não houve troca estética de URL de produção, credenciais locais ou nomes de banco/volume já provisionados.
 
-**Compatibilidade de rollout:** issuer/audience JWT e QR e a chave de armazenamento do browser foram renomeados. Tokens anteriores exigem novo login; QRs antigos precisam ser regenerados ao reabrir o ingresso. O código manual e os dados persistidos permanecem. O runbook exige rollout coordenado e atenção a QRs impressos. Não publique durante operação de portaria sem tratar essa transição.
+**Compatibilidade de rollout:** SEPTEM emite apenas a identidade atual, mas mantém validação retrocompatível dos contratos legítimos anteriores. A interrupção inicialmente identificada foi corrigida: tokens e QRs anteriores ainda válidos são aceitos, sem exigir novo login ou regeneração por causa da renomeação. O frontend migra o armazenamento após validar a sessão. Assinatura, expiração, finalidade e pares completos continuam obrigatórios; códigos manuais e dados persistidos permanecem. ADR-030 e o runbook documentam a transição. Credenciais já expiradas, revogadas pelo estado do ingresso ou removidas do navegador não são recuperadas.
 
 ## Smoke realizado e limites da validação
 
@@ -116,5 +120,6 @@ URLs canônicas de repositório e demo estão no [README](../README.md). Nenhum 
 | `24009c5` | Editor, navegação e testes de interação/acessibilidade |
 | `535c904` | Erros públicos, logs, headers e recursos SSE |
 | `fa88cf2` | Mutation proof e verificação na CI |
+| `4469e50` | README, runbook, limitações e relatório inicial |
 
-O sexto commit, `docs: publish independent project overview and hardening report`, contém README, runbook, limitações e este relatório. Seu hash pode ser consultado no histórico da branch; ele só existe depois da gravação deste arquivo.
+O ajuste posterior fica em um commit separado, `fix(auth): preserve legacy credentials with strict contract pairs`, com código, testes e atualização desta documentação. Seu hash pode ser consultado no histórico da branch.

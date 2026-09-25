@@ -456,19 +456,19 @@ beforeAll(async () => {
   customerTwoId = customerTwo.id
   accessTokens.set(
     Role.ORGANIZER,
-    app.jwt.sign({ role: Role.ORGANIZER }, { sub: organizer.id }),
+    app.jwt.sign({ role: Role.ORGANIZER, sub: organizer.id }),
   )
   accessTokens.set(
     Role.CUSTOMER,
-    app.jwt.sign({ role: Role.CUSTOMER }, { sub: customerOne.id }),
+    app.jwt.sign({ role: Role.CUSTOMER, sub: customerOne.id }),
   )
   accessTokens.set(
     'SECOND_CUSTOMER',
-    app.jwt.sign({ role: Role.CUSTOMER }, { sub: customerTwo.id }),
+    app.jwt.sign({ role: Role.CUSTOMER, sub: customerTwo.id }),
   )
   accessTokens.set(
     Role.GATE,
-    app.jwt.sign({ role: Role.GATE }, { sub: gate.id }),
+    app.jwt.sign({ role: Role.GATE, sub: gate.id }),
   )
 
   await removeCancellationFailureTrigger()

@@ -12,6 +12,8 @@ Sistema completo de gerenciamento, venda e operação de sessões de cinema. Pro
 
 A API pode levar alguns segundos para iniciar. As páginas públicas recuperam falhas temporárias automaticamente e informam a espera. A versão publicada depende do último rollout; mudanças locais só chegam à demo depois de publicadas.
 
+SEPTEM emite apenas a identidade atual, mas mantém validação retrocompatível dos contratos legítimos anteriores. Sessões autenticadas e QRs existentes preservam sua validade original; a renomeação não exige novo login nem reemissão de ingressos. Veja a política de transição no [runbook](docs/OPERATIONS.md).
+
 Todas as contas demonstrativas usam `Demo@123`:
 
 | Papel | E-mail | Experimente |

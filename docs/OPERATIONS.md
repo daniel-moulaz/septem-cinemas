@@ -62,7 +62,13 @@ O catálogo do organizador pode retornar TMDB_NOT_CONFIGURED, TMDB_TIMEOUT ou TM
 5. Smoke: programação → sessão → assentos; login cliente → reserva → aprovação → ingresso; organizador → criar/editar/publicar; portaria → VALID e ALREADY_USED. Use ingressos criados para o smoke para preservar a demonstração.
 6. Em regressão, reverta para um commit/deployment conhecido e compatível com o schema aplicado. Migrations não têm rollback automático: preserve backup e prefira correção incremental quando o código anterior não puder ler o schema atual. Nunca faça reset do banco para reverter código.
 
-Nesta rodada os emissores/audiências dos tokens passaram à identidade SEPTEM. Isso encerra compatibilidade com JWT e QR já renderizados antes do rollout. Faça novo login e reabra ingressos para obter QR atualizado; o código manual e os dados persistidos não mudam. Publique API e frontend de forma coordenada e evite janela de portaria com QRs antigos impressos.
+SEPTEM emite apenas a identidade atual, mas mantém validação retrocompatível dos contratos legítimos anteriores. JWTs e QRs anteriores continuam aceitos dentro de sua validade original, com assinatura, algoritmo, par completo de emissor/destinatário e regras de autorização preservados. A renomeação não exige novo login nem regeneração de QRs. O frontend prioriza a chave atual de armazenamento e migra a anterior após validar o token; logout e 401 limpam ambas. Uma falha temporária de restauração preserva a credencial para nova tentativa ao recarregar a página.
+
+Preserve JWT_SECRET e TICKET_SIGNING_SECRET, distintos entre si, e a DATABASE_URL real. Não rode seed, recrie ingresso ou altere dados para realizar essa transição. Links compartilhados e códigos manuais não mudam.
+
+No rollout, direcione o tráfego para a API retrocompatível antes de publicar o frontend. Evite alternar requisições entre essa versão e uma API original que só reconhece o contrato anterior: a versão original não aceita tokens SEPTEM novos. Use cutover/drain das instâncias antigas; o rollback deve preservar um validador compatível com ambos os contratos. Nenhuma versão desta implementação emite credenciais com a identidade anterior.
+
+A aceitação anterior não tem corte automático nesta versão. Para removê-la, confirme que todas as instâncias antigas pararam de emitir: JWTs de login expiram em oito horas, enquanto QRs duram até o início da sessão mais duração do filme e duas horas de margem. A duração substituta quando desconhecida é de três horas. Inventarie os ingressos ainda utilizáveis antes de escolher o prazo; não aplique a janela de login aos QRs. O iat do QR representa a emissão do ingresso, não quando a imagem foi renderizada.
 
 ## Logs e investigação
 

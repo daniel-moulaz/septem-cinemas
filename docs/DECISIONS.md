@@ -559,3 +559,23 @@ A API mantém CORS por origem exata, respostas sem cache, headers em onRequest i
 Fastify e Swagger UI foram atualizados por alertas de segurança. Dois overrides restritos ao tooling Prisma corrigem deepmerge-ts e mysql2 sem migrar o ORM para uma versão candidata. Removê-los quando uma versão estável incorporar as correções. A aplicação usa PostgreSQL, mas a ferramenta instalada também faz parte da manutenção. Prisma validate/generate, migrations do zero, seed e testes verificam a compatibilidade exercitada.
 
 Axe-core foi adicionado só como dependência de desenvolvimento para verificar acessibilidade nos componentes existentes. Não foi introduzido framework visual ou segundo test runner.
+
+## ADR-030 — Emissão atual e validação retrocompatível de credenciais
+
+### Contexto
+
+Emissor, destinatário e chave de armazenamento fazem parte de contratos em uso. Renomeá-los sem transição interromperia sessões autenticadas e recusaria QRs de ingressos ainda válidos, sem benefício criptográfico. O objetivo de identidade independente não exige invalidar credenciais legítimas.
+
+### Decisão
+
+SEPTEM emite apenas a identidade atual, mas mantém validação retrocompatível dos contratos legítimos anteriores. Autenticação aceita exatamente o par atual ou o par anterior de login; ingresso aceita exatamente o par atual ou o par anterior da portaria. Pares cruzados, desconhecidos, incompletos ou de outra finalidade são rejeitados. Não existem duas allowlists independentes. Constantes legadas servem apenas à leitura; os emissores não recebem opção para escolher o contrato anterior.
+
+JWT de login conserva HS256, JWT_SECRET e oito horas de validade. A biblioteca verifica assinatura/expiração e exige iss, aud, sub, iat e exp; o guard compara o par completo antes de buscar o usuário e seu papel atual no banco. QR conserva HS256, TICKET_SIGNING_SECRET separado, tipo ticket, versão 1, IDs e expiração existentes. Ambos os QRs identificam o mesmo ingresso e passam pelo mesmo consumo condicional; aceitar duas representações não permite duas entradas.
+
+O frontend procura a chave atual antes da anterior. Somente após GET /auth/me confirmar a sessão, grava na chave atual e remove a antiga. Se as duas existirem, a atual prevalece; 401 limpa ambas sem trocar silenciosamente de identidade. Logout também limpa ambas. Falha temporária não apaga o token; falha na gravação mantém o fallback, com sessão em memória. Uma restauração abortada não migra storage.
+
+### Trade-offs e retirada
+
+Há uma pequena superfície explícita de compatibilidade no código/testes, sem reintroduzir a identidade anterior na apresentação pública. Não se alteram schema, reservas, pagamentos, ingressos, códigos manuais ou segredos. Não se estende expiração e não se recupera token já removido por uma versão incompatível.
+
+Não há data de corte arbitrária no validador: retirar suporte exige encerrar emissão por instâncias antigas e deixar expirar os contratos ainda utilizáveis. Login possui janela de oito horas; QR depende da sessão e pode durar mais. O runbook descreve rollout e rollback sem permitir emissão nova com identificadores anteriores. Testes protegem pares, assinatura, expiração, finalidade, emissão SEPTEM, migração do storage e consumo único entre representações.

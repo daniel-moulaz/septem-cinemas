@@ -248,7 +248,7 @@ function forgeToken(
   token: string,
   options: {
     header?: Record<string, unknown>
-    payload?: Partial<TicketTokenPayload>
+    payload?: { [Key in keyof TicketTokenPayload]?: TicketTokenPayload[Key] | undefined }
   },
 ) {
   const [encodedHeader, encodedPayload] = token.split('.')
@@ -300,19 +300,19 @@ beforeAll(async () => {
 
   accessTokens.set(
     Role.ORGANIZER,
-    app.jwt.sign({ role: Role.ORGANIZER }, { sub: organizer.id }),
+    app.jwt.sign({ role: Role.ORGANIZER, sub: organizer.id }),
   )
   accessTokens.set(
     Role.CUSTOMER,
-    app.jwt.sign({ role: Role.CUSTOMER }, { sub: customerOne.id }),
+    app.jwt.sign({ role: Role.CUSTOMER, sub: customerOne.id }),
   )
   accessTokens.set(
     'SECOND_CUSTOMER',
-    app.jwt.sign({ role: Role.CUSTOMER }, { sub: customerTwo.id }),
+    app.jwt.sign({ role: Role.CUSTOMER, sub: customerTwo.id }),
   )
   accessTokens.set(
     Role.GATE,
-    app.jwt.sign({ role: Role.GATE }, { sub: gate.id }),
+    app.jwt.sign({ role: Role.GATE, sub: gate.id }),
   )
 
   await prisma.sharedTicketLink.deleteMany({
@@ -346,6 +346,70 @@ afterAll(async () => {
 })
 
 describe('ticket cryptography', () => {
+  function currentToken() {
+    return signTicketToken({
+      ticketId: '00000000-0000-4000-8000-000000000101',
+      sessionId: '00000000-0000-4000-8000-000000000102',
+      issuedAt: new Date(Date.now() - 60_000), sessionStartsAt: futureDate(),
+      movieRuntimeMinutes: 120, secret: TICKET_SIGNING_SECRET,
+    })
+  }
+
+  it.each([
+    ['elite-dev-verzel-api', 'elite-dev-verzel-gate', true],
+    ['septem-cinemas-api', 'septem-cinemas-gate', true],
+    ['elite-dev-verzel-api', 'septem-cinemas-gate', false],
+    ['septem-cinemas-api', 'elite-dev-verzel-gate', false],
+    ['unknown', 'septem-cinemas-gate', false],
+    ['septem-cinemas-api', 'unknown', false],
+    ['elite-dev-verzel-api', 'elite-dev-verzel-web', false],
+    ['septem-cinemas-api', 'septem-cinemas-web', false],
+  ] as const)('validates the complete ticket pair %s / %s', (iss, aud, accepted) => {
+    const token = forgeToken(currentToken(), { payload: { iss, aud } })
+    const verify = () => verifyTicketToken(token, { secret: TICKET_SIGNING_SECRET })
+    if (accepted) expect(verify()).toMatchObject({ iss, aud })
+    else expect(verify).toThrow('Token de ingresso inválido.')
+  })
+
+  it.each([
+    { iss: 'elite-dev-verzel-api', aud: 'elite-dev-verzel-gate' },
+    { iss: 'septem-cinemas-api', aud: 'septem-cinemas-gate' },
+  ])('preserves signature, expiration, algorithm, type and version for $iss', (contract) => {
+    const token = forgeToken(currentToken(), { payload: contract })
+    const [header, payload, signature] = token.split('.')
+    const tampered = `${header}.${payload}.${signature!.startsWith('a') ? 'b' : 'a'}${signature!.slice(1)}`
+    const wrongKey = `${header}.${payload}.${createHmac('sha256', process.env.JWT_SECRET!).update(`${header}.${payload}`).digest('base64url')}`
+    for (const invalid of [
+      tampered, wrongKey,
+      forgeToken(token, { header: { alg: 'HS512' } }),
+      forgeToken(token, { payload: { typ: 'auth' } }),
+      forgeToken(token, { payload: { ver: 2 } }),
+      forgeToken(token, { payload: { aud: undefined } }),
+    ]) {
+      expect(() => verifyTicketToken(invalid, { secret: TICKET_SIGNING_SECRET })).toThrow('Token de ingresso inválido.')
+    }
+    const expired = forgeToken(token, { payload: { exp: Math.floor(Date.now() / 1_000) - 1 } })
+    expect(() => verifyTicketToken(expired, { secret: TICKET_SIGNING_SECRET })).toThrow('Token de ingresso expirado.')
+  })
+
+  it.each(['legacy-first', 'current-first'])('consumes the same existing ticket only once across both QR contracts (%s)', async (order) => {
+    const fixture = await createTicketFixture()
+    const original = await prisma.ticket.findUniqueOrThrow({ where: { id: fixture.ticketId } })
+    const response = await app.inject({ url: `/me/tickets/${fixture.ticketId}`, headers: authorization(tokenFor(Role.CUSTOMER)) })
+    expect(response.statusCode).toBe(200)
+    const current = response.json<TicketResponse>().qrToken!
+    expect(verifyTicketToken(current, { secret: TICKET_SIGNING_SECRET })).toMatchObject({ iss: 'septem-cinemas-api', aud: 'septem-cinemas-gate' })
+    const legacy = forgeToken(current, { payload: { iss: 'elite-dev-verzel-api', aud: 'elite-dev-verzel-gate' } })
+    // Reading a new QR neither rewrites the ticket nor changes its manual code.
+    expect(await prisma.ticket.findUniqueOrThrow({ where: { id: fixture.ticketId } })).toEqual(original)
+    const credentials = order === 'legacy-first' ? [legacy, current] : [current, legacy]
+    for (const [index, credential] of credentials.entries()) {
+      const consumed = await app.inject({ method: 'POST', url: '/gate/tickets/consume', headers: authorization(tokenFor(Role.GATE)), payload: { sessionId: fixture.sessionId, credential } })
+      expect(consumed.statusCode).toBe(200)
+      expect(consumed.json().result).toBe(index === 0 ? 'VALID' : 'ALREADY_USED')
+    }
+  })
+
   it('generates friendly, unpredictable manual codes in the database format', () => {
     const codes = Array.from({ length: 200 }, generateManualCode)
 
