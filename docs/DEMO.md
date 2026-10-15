@@ -6,6 +6,18 @@ O SEPTEM cobre três perspectivas de uma sessão de cinema: quem reserva um luga
 
 As telas abaixo já fazem parte da documentação do projeto e mostram contas e sessões demonstrativas. As datas das capturas não indicam disponibilidade atual. A base online é compartilhada; uma sessão ou um ingresso de exemplo pode ter sido alterado por outra pessoa.
 
+## Programação demonstrativa
+
+Em **15/10/2026**, foram adicionadas **40 sessões** na mostra **SEPTEM Mostra Demo**, de **24/10/2026 a 23/10/2027**. Cada data tem Cidade de Deus, Matrix, Interestelar, Duna: Parte Dois e O Poderoso Chefão, em salas diferentes.
+
+| Datas | Horários de Brasília |
+| --- | --- |
+| 24/10/2026 · 21/11/2026 · 16/01/2027 · 20/03/2027 · 22/05/2027 · 24/07/2027 · 18/09/2027 · 23/10/2027 | Cidade de Deus 14h · Matrix 16h · Interestelar 18h · Duna: Parte Dois 20h · O Poderoso Chefão 21h |
+
+São sessões fictícias para explorar a aplicação, sem exibição presencial nem cobrança real. A listagem pública confirmou as 40 novas sessões, com IDs distintos; os dados de cadastro das 53 sessões anteriores foram preservados. Foram duplicadas somente estruturas, sem reexecutar seed ou copiar reservas e ingressos.
+
+As datas são fixas, sem renovação automática. Confira a programação online para a disponibilidade atual.
+
 ## 1. Escolher a sessão e os lugares
 
 Na [programação](https://septem-cinemas.vercel.app), abra um filme com horário futuro, selecione os assentos e entre com a conta de cliente descrita no [README](../README.md#demo). Uma reserva mantém os lugares por dez minutos; o checkout demonstrativo emite o ingresso.
