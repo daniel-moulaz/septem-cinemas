@@ -1,18 +1,19 @@
 # SEPTEM Cinemas
 
-Sistema completo de gerenciamento, venda e operação de sessões de cinema. Projeto independente de portfólio de **Daniel Moulaz**.
+Aplicação para gerenciar sessões de cinema, reservar assentos e validar ingressos, com pagamento simulado. Projeto independente de portfólio de **Daniel Moulaz**.
 
 [![CI](https://github.com/daniel-moulaz/septem-cinemas/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/daniel-moulaz/septem-cinemas/actions/workflows/ci.yml)
 
 ## Demo
 
+- [Roteiro visual: assentos, organização e portaria](docs/DEMO.md)
 - [Aplicação](https://septem-cinemas.vercel.app)
 - [API / health](https://elite-dev-verzel-production.up.railway.app/health)
 - [Swagger UI](https://elite-dev-verzel-production.up.railway.app/docs)
 
 A API pode levar alguns segundos para iniciar. As páginas públicas recuperam falhas temporárias automaticamente e informam a espera. A versão publicada depende do último rollout; mudanças locais só chegam à demo depois de publicadas.
 
-SEPTEM emite apenas a identidade atual, mas mantém validação retrocompatível dos contratos legítimos anteriores. Sessões autenticadas e QRs existentes preservam sua validade original; a renomeação não exige novo login nem reemissão de ingressos. Veja a política de transição no [runbook](docs/OPERATIONS.md).
+Se não houver sessões futuras na programação, o [roteiro visual](docs/DEMO.md) permite conhecer os fluxos. As capturas são demonstrações registradas, não a disponibilidade atual de ingressos.
 
 Todas as contas demonstrativas usam `Demo@123`:
 
@@ -24,6 +25,8 @@ Todas as contas demonstrativas usam `Demo@123`:
 | Portaria | `gate@demo.local` | Validar QR ou código manual, com consumo único |
 
 O seed prepara 14 sessões publicadas, dois rascunhos e um ingresso válido. Datas são relativas à execução do seed; não se renovam sozinhas. A base pública é compartilhada e pode ter sido alterada por outras pessoas.
+
+Informações sobre compatibilidade de sessões autenticadas e QRs de versões anteriores ficam no [runbook](docs/OPERATIONS.md).
 
 ## O que o sistema resolve
 
